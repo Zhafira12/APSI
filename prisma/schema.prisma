@@ -7,21 +7,288 @@ datasource db {
   provider = "postgresql"
 }
 
-model users {
-  id_user   Int         @id @default(autoincrement())
-  nama      String      @db.VarChar(100)
-  username  String      @unique @db.VarChar(50)
-  role      String      @db.VarChar(20)
-  transaksi transaksi[]
+/// This table contains check constraints and requires additional setup for migrations.
+/// Visit https://pris.ly/d/check-constraints for more info.
+model transaksi {
+  id_transaksi         Int                @id
+  apoteker_id_pengguna Int?
+  tanggal              DateTime           @db.Date
+  nama_pelanggan       String?            @db.VarChar(100)
+  nama_pengguna        String?            @db.VarChar(100)
+  catatan_obat         String?            @db.VarChar(225)
+  total                Decimal            @default(0) @db.Decimal(12, 2)
+  metode_pembayaran    String?            @db.VarChar(50)
+  status               String?            @db.VarChar(20)
+  laporan_id_laporan   Int?
+  admin                admin[]
+  detail_transaksi     detail_transaksi[]
+  obat                 obat[]
+  pelanggan            pelanggan[]
+  retur_obat           retur_obat[]
+  apoteker             apoteker?          @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_transaksi_apoteker")
+  laporan              laporan?           @relation(fields: [laporan_id_laporan], references: [id_laporan], map: "fk_transaksi_laporan")
+
+  @@index([tanggal], map: "idx_transaksi_tanggal")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model transaksi {
-  id_transaksi Int      @id @default(autoincrement())
-  id_user      Int
-  nama_barang  String   @db.VarChar(100)
-  jumlah       Int
-  harga_satuan Decimal  @db.Decimal(12, 2)
-  tanggal      DateTime @default(now()) @db.Timestamp(6)
-  users        users    @relation(fields: [id_user], references: [id_user])
+model admin {
+  id_pengguna            Int         @id
+  menu_id_menu           Int?
+  transaksi_id_transaksi Int?
+  retur_obat_id_retur    Int?
+  nama_pengguna          String      @db.VarChar(100)
+  email                  String      @unique @db.VarChar(50)
+  username               String      @unique @db.VarChar(50)
+  password_hash          String      @db.VarChar(225)
+  no_hp                  String?     @db.VarChar(20)
+  alamat                 String?     @db.VarChar(50)
+  status                 String      @default("Aktif") @db.VarChar(20)
+  menu                   menu?       @relation(fields: [menu_id_menu], references: [id_menu], map: "fk_admin_menu")
+  retur_obat             retur_obat? @relation(fields: [retur_obat_id_retur], references: [id_retur], map: "fk_admin_retur")
+  transaksi              transaksi?  @relation(fields: [transaksi_id_transaksi], references: [id_transaksi], map: "fk_admin_transaksi")
+  laporan                laporan[]
+}
+
+model apoteker {
+  id_pengguna   Int          @id
+  menu_id_menu  Int?
+  nama_pengguna String       @db.VarChar(100)
+  email         String       @unique @db.VarChar(50)
+  username      String       @unique @db.VarChar(50)
+  password_hash String       @db.VarChar(225)
+  no_hp         String?      @db.VarChar(20)
+  alamat        String?      @db.VarChar(50)
+  status        String       @default("Aktif") @db.VarChar(20)
+  menu          menu?        @relation(fields: [menu_id_menu], references: [id_menu], map: "fk_apoteker_menu")
+  obat          obat[]
+  resep_obat    resep_obat[]
+  retur_obat    retur_obat[]
+  transaksi     transaksi[]
+}
+
+model asisten_apoteker {
+  id_pengguna   Int          @id
+  menu_id_menu  Int?
+  nama_pengguna String       @db.VarChar(100)
+  email         String       @unique @db.VarChar(50)
+  username      String       @unique @db.VarChar(50)
+  password_hash String       @db.VarChar(225)
+  no_hp         String?      @db.VarChar(20)
+  alamat        String?      @db.VarChar(50)
+  status        String       @default("Aktif") @db.VarChar(20)
+  menu          menu?        @relation(fields: [menu_id_menu], references: [id_menu], map: "fk_asisten_menu")
+  laporan       laporan[]
+  obat          obat[]
+  retur_obat    retur_obat[]
+}
+
+model detail_permintaan_obat {
+  id_detail_permintaan_obat     Int             @id
+  permintaan_obat_id_permintaan Int
+  id_obat                       Int
+  jumlah                        String?         @db.VarChar(30)
+  catatan                       String?         @db.VarChar(225)
+  permintaan_obat               permintaan_obat @relation(fields: [permintaan_obat_id_permintaan], references: [id_permintaan], onDelete: Cascade, map: "fk_detail_permintaan_header")
+  obat                          obat            @relation(fields: [id_obat], references: [id_obat], map: "fk_detail_permintaan_obat")
+}
+
+model detail_resep_obat {
+  id_detail_resep Int         @id
+  id_obat         Int
+  id_resep        Int?
+  jumlah          String?     @db.VarChar(30)
+  aturan_pakai    String?     @db.VarChar(255)
+  obat            obat        @relation(fields: [id_obat], references: [id_obat], map: "fk_detail_resep_obat")
+  resep_obat      resep_obat? @relation(fields: [id_resep], references: [id_resep], onDelete: Cascade, onUpdate: Cascade, map: "fk_detail_resep_header")
+}
+
+model detail_retur_obat {
+  id_detail_retur     Int        @id
+  retur_obat_id_retur Int
+  id_obat             Int
+  jumlah              String?    @db.VarChar(50)
+  status_retur        String?    @db.VarChar(20)
+  retur_obat          retur_obat @relation(fields: [retur_obat_id_retur], references: [id_retur], onDelete: Cascade, map: "fk_detail_retur_header")
+  obat                obat       @relation(fields: [id_obat], references: [id_obat], map: "fk_detail_retur_obat")
+}
+
+model detail_transaksi {
+  id_detail_transaksi    Int       @id
+  transaksi_id_transaksi Int
+  jumlah                 Int
+  harga_satuan           Decimal   @db.Decimal(10, 2)
+  subtotal               Decimal   @db.Decimal(10, 2)
+  transaksi              transaksi @relation(fields: [transaksi_id_transaksi], references: [id_transaksi], onDelete: Cascade, map: "fk_detail_transaksi_header")
+}
+
+model golongan_obat {
+  id_golongan   Int     @id
+  nama_golongan String  @db.VarChar(255)
+  deskripsi     String? @db.VarChar(255)
+  obat          obat[]
+}
+
+model laporan {
+  id_laporan                   Int               @id
+  admin_id_pengguna            Int?
+  owner_id_pengguna            Int?
+  asisten_apoteker_id_pengguna Int?
+  nama_laporan                 String            @db.VarChar(100)
+  jenis_laporan                String?           @db.VarChar(20)
+  tanggal_laporan              DateTime?         @db.Date
+  periode_laporan              String?           @db.VarChar(30)
+  isi_laporan                  String?           @db.VarChar(225)
+  admin                        admin?            @relation(fields: [admin_id_pengguna], references: [id_pengguna], map: "fk_laporan_admin")
+  asisten_apoteker             asisten_apoteker? @relation(fields: [asisten_apoteker_id_pengguna], references: [id_pengguna], map: "fk_laporan_asisten")
+  owner                        owner?            @relation(fields: [owner_id_pengguna], references: [id_pengguna], map: "fk_laporan_owner")
+  menu                         menu[]
+  transaksi                    transaksi[]
+
+  @@index([tanggal_laporan], map: "idx_laporan_tanggal")
+}
+
+model menu {
+  id_menu            Int                @id
+  laporan_id_laporan Int?
+  nama_obat          String?            @db.VarChar(225)
+  status             String?            @db.VarChar(20)
+  golongan_obat      String?            @db.VarChar(225)
+  harga_obat         Decimal?           @db.Decimal(12, 2)
+  stok_obat          Int?
+  satuan_obat        String?            @db.VarChar(225)
+  deskripsi          String?            @db.VarChar(255)
+  admin              admin[]
+  apoteker           apoteker[]
+  asisten_apoteker   asisten_apoteker[]
+  laporan            laporan?           @relation(fields: [laporan_id_laporan], references: [id_laporan], map: "fk_menu_laporan")
+  owner              owner[]
+  pelanggan          pelanggan[]
+}
+
+model obat {
+  id_obat                       Int                      @id
+  golongan_obat_id_golongan     Int?
+  retur_obat_id_retur           Int?
+  permintaan_obat_id_permintaan Int?
+  apoteker_id_pengguna          Int?
+  asisten_apoteker_id_pengguna  Int?
+  transaksi_id_transaksi        Int?
+  resep_obat_id_resep           Int?
+  nama_obat                     String                   @db.VarChar(100)
+  harga_beli                    Decimal                  @default(0) @db.Decimal(10, 2)
+  harga_jual                    Decimal                  @default(0) @db.Decimal(10, 2)
+  stok_minimum                  Int                      @default(0)
+  satuan                        String?                  @db.VarChar(20)
+  status                        String?                  @default("Aktif") @db.VarChar(20)
+  satuan_obat                   Int?
+  detail_permintaan_obat        detail_permintaan_obat[]
+  detail_resep_obat             detail_resep_obat[]
+  detail_retur_obat             detail_retur_obat[]
+  apoteker                      apoteker?                @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_obat_apoteker")
+  asisten_apoteker              asisten_apoteker?        @relation(fields: [asisten_apoteker_id_pengguna], references: [id_pengguna], map: "fk_obat_asisten")
+  golongan_obat                 golongan_obat?           @relation(fields: [golongan_obat_id_golongan], references: [id_golongan], map: "fk_obat_golongan")
+  permintaan_obat               permintaan_obat?         @relation(fields: [permintaan_obat_id_permintaan], references: [id_permintaan], map: "fk_obat_permintaan")
+  resep_obat                    resep_obat?              @relation(fields: [resep_obat_id_resep], references: [id_resep], map: "fk_obat_resep")
+  retur_obat                    retur_obat?              @relation(fields: [retur_obat_id_retur], references: [id_retur], map: "fk_obat_retur")
+  transaksi                     transaksi?               @relation(fields: [transaksi_id_transaksi], references: [id_transaksi], map: "fk_obat_transaksi")
+  stok_obat                     stok_obat[]
+
+  @@index([golongan_obat_id_golongan], map: "idx_obat_golongan")
+  @@index([nama_obat], map: "idx_obat_nama")
+}
+
+model owner {
+  id_pengguna   Int       @id
+  menu_id_menu  Int?
+  nama_pengguna String    @db.VarChar(100)
+  email         String    @unique @db.VarChar(50)
+  username      String    @unique @db.VarChar(50)
+  password_hash String    @db.VarChar(225)
+  no_hp         String?   @db.VarChar(20)
+  alamat        String?   @db.VarChar(225)
+  status        String    @default("Aktif") @db.VarChar(20)
+  laporan       laporan[]
+  menu          menu?     @relation(fields: [menu_id_menu], references: [id_menu], map: "fk_owner_menu")
+}
+
+model pelanggan {
+  id_pengguna            Int               @id
+  transaksi_id_transaksi Int?
+  menu_id_menu           Int?
+  nama_pengguna          String            @db.VarChar(100)
+  email                  String            @unique @db.VarChar(50)
+  username               String            @unique @db.VarChar(50)
+  password_hash          String            @db.VarChar(225)
+  no_hp                  String?           @db.VarChar(20)
+  alamat                 String?           @db.VarChar(50)
+  status                 String            @default("Aktif") @db.VarChar(20)
+  menu                   menu?             @relation(fields: [menu_id_menu], references: [id_menu], map: "fk_pelanggan_menu")
+  transaksi              transaksi?        @relation(fields: [transaksi_id_transaksi], references: [id_transaksi], map: "fk_pelanggan_transaksi")
+  permintaan_obat        permintaan_obat[]
+  resep_obat             resep_obat[]
+  retur_obat             retur_obat[]
+}
+
+model permintaan_obat {
+  id_permintaan          Int                      @id
+  pelanggan_id_pengguna  Int?
+  tanggal_permintaan     DateTime?                @db.Date
+  status_permintaan      String?                  @db.VarChar(20)
+  keterangan             String?                  @db.VarChar(225)
+  harga_obat             Decimal?                 @db.Decimal(10, 2)
+  detail_permintaan_obat detail_permintaan_obat[]
+  obat                   obat[]
+  pelanggan              pelanggan?               @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_permintaan_pelanggan")
+  resep_obat             resep_obat?
+
+  @@index([tanggal_permintaan], map: "idx_permintaan_tanggal")
+}
+
+model resep_obat {
+  id_resep                      Int                 @id
+  apoteker_id_pengguna          Int?
+  pelanggan_id_pengguna         Int?
+  permintaan_obat_id_permintaan Int?                @unique
+  tanggal_resep                 DateTime?           @db.Date
+  nama_pasien                   String?             @db.VarChar(100)
+  nama_dokter                   String?             @db.VarChar(100)
+  daftar_obat                   String?             @db.VarChar(225)
+  status_validasi               String?             @db.VarChar(30)
+  catatan                       String?             @db.VarChar(225)
+  obat                          obat[]
+  apoteker                      apoteker?           @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_resep_apoteker")
+  pelanggan                     pelanggan?          @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_resep_pelanggan")
+  permintaan_obat               permintaan_obat?    @relation(fields: [permintaan_obat_id_permintaan], references: [id_permintaan], onDelete: SetNull, map: "fk_resep_permintaan")
+  detail_resep_obat             detail_resep_obat[]
+
+  @@index([tanggal_resep], map: "idx_resep_tanggal")
+}
+
+model retur_obat {
+  id_retur                     Int                 @id
+  pelanggan_id_pengguna        Int?
+  transaksi_id_transaksi       Int?
+  apoteker_id_pengguna         Int?
+  asisten_apoteker_id_pengguna Int?
+  tanggal_retur                DateTime?           @db.Date
+  nama_obat_retur              String?             @db.VarChar(255)
+  alasan                       String?             @db.VarChar(255)
+  admin                        admin[]
+  detail_retur_obat            detail_retur_obat[]
+  obat                         obat[]
+  apoteker                     apoteker?           @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_retur_apoteker")
+  asisten_apoteker             asisten_apoteker?   @relation(fields: [asisten_apoteker_id_pengguna], references: [id_pengguna], map: "fk_retur_asisten")
+  pelanggan                    pelanggan?          @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_retur_pelanggan")
+  transaksi                    transaksi?          @relation(fields: [transaksi_id_transaksi], references: [id_transaksi], map: "fk_retur_transaksi")
+
+  @@index([tanggal_retur], map: "idx_retur_tanggal")
+}
+
+model stok_obat {
+  id_stok        Int       @id
+  obat_id_obat   Int
+  jumlah_stok    Int       @default(0)
+  tanggal_update DateTime? @db.Date
+  keterangan     String?   @db.VarChar(225)
+  obat           obat      @relation(fields: [obat_id_obat], references: [id_obat], onDelete: Cascade, map: "fk_stok_obat")
 }
