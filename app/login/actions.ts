@@ -15,18 +15,26 @@ export async function login(_previousState: LoginState, formData: FormData): Pro
   }
 
   let apoteker: { id_pengguna: number; password_hash: string; status: string } | null;
-  let pelanggan: { id_pengguna: number; password_hash: string; status: string } | null;
+  let pelangganByUsername: { id_pengguna: number; password_hash: string; status: string } | null;
+  let pelangganByEmail: { id_pengguna: number; password_hash: string; status: string } | null;
   try {
-    [apoteker, pelanggan] = await Promise.all([
+    [apoteker, pelangganByUsername, pelangganByEmail] = await Promise.all([
       prisma.apoteker.findUnique({ where: { username: username.trim() }, select: { id_pengguna: true, password_hash: true, status: true } }),
       prisma.pelanggan.findUnique({ where: { username: username.trim() }, select: { id_pengguna: true, password_hash: true, status: true } }),
+      username.trim().includes("@")
+        ? prisma.pelanggan.findFirst({ where: { email: { equals: username.trim(), mode: "insensitive" } }, select: { id_pengguna: true, password_hash: true, status: true } })
+        : Promise.resolve(null),
     ]);
   } catch {
     return { error: "Login sementara tidak dapat terhubung ke database." };
   }
 
-  // Username must identify exactly one actor, and only bcrypt hashes are accepted.
-  if (Boolean(apoteker) === Boolean(pelanggan)) return { error: "Username atau password salah." };
+  // The identifier must resolve to exactly one account; customer email is an alternate identifier.
+  if ((apoteker && (pelangganByUsername || pelangganByEmail)) || (pelangganByUsername && pelangganByEmail && pelangganByUsername.id_pengguna !== pelangganByEmail.id_pengguna)) {
+    return { error: "Username atau password salah." };
+  }
+  const pelanggan = pelangganByUsername ?? pelangganByEmail;
+  if (!apoteker && !pelanggan) return { error: "Username atau password salah." };
   const user = apoteker ?? pelanggan!;
   const isBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(user.password_hash);
   const passwordMatches = isBcryptHash && await compare(password, user.password_hash);

@@ -49,8 +49,7 @@ async function PermintaanContent({ searchParams }: Props) {
     const match = request.keterangan?.match(/Resep ID:\s*(\d+)/i);
     return match ? [Number(match[1])] : [];
   }).filter((id) => Number.isSafeInteger(id) && id > 0);
-  const recipes = patients.length && linkedRecipeIds.length ? await prisma.resep_obat.findMany({ where: { id_resep: { in: linkedRecipeIds }, pelanggan_id_pengguna: { in: patients }, status_validasi: { in: ["Disetujui", "Valid"] }, detail_resep_obat: { some: { id_obat: { in: medicines } } } }, include: { detail_resep_obat: { select: { id_obat: true } } } }) : [];
-  const validRecipeKeys = new Set(recipes.flatMap((recipe) => recipe.detail_resep_obat.map((detail) => `${recipe.id_resep}:${recipe.pelanggan_id_pengguna}:${detail.id_obat}`)));
+  const recipes = patients.length && linkedRecipeIds.length ? await prisma.resep_obat.findMany({ where: { id_resep: { in: linkedRecipeIds }, pelanggan_id_pengguna: { in: patients }, detail_resep_obat: { some: { id_obat: { in: medicines } } } }, include: { detail_resep_obat: { select: { id_obat: true } } } }) : [];
 
   return <ApotekerShell active="/apoteker/permintaan" name={apoteker.nama_pengguna}>
     <PageHeading eyebrow="LAYANAN PELANGGAN" title="Permintaan Obat" description="Tinjau obat, jumlah, ketersediaan stok, dan resep pelanggan."/>
@@ -66,8 +65,12 @@ async function PermintaanContent({ searchParams }: Props) {
             const stock = detail.obat.stok_obat.sort((a, b) => (b.tanggal_update?.getTime() ?? -1) - (a.tanggal_update?.getTime() ?? -1) || b.id_stok - a.id_stok)[0]?.jumlah_stok ?? 0;
             const needsRecipe = /resep|antibiotik|keras/i.test(detail.obat.golongan_obat?.nama_golongan ?? "");
             const linkedRecipeId = Number(request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1]);
-            const hasRecipe = request.pelanggan_id_pengguna !== null && Number.isSafeInteger(linkedRecipeId) && validRecipeKeys.has(`${linkedRecipeId}:${request.pelanggan_id_pengguna}:${detail.id_obat}`);
-            return <div className="pharmacist-request-line" key={detail.id_detail_permintaan_obat}><b>{detail.obat.nama_obat}</b><span>{quantity} {detail.obat.satuan ?? "unit"}</span><span>{money(detail.obat.harga_jual.toString())} / satuan</span><span className={stock >= quantity ? "text-green" : "text-danger"}>Stok {stock >= quantity ? "tersedia" : "tidak cukup"} ({stock})</span><span className={needsRecipe ? (hasRecipe ? "text-green" : "text-danger") : "text-muted"}>{needsRecipe ? (hasRecipe ? "Resep valid" : "Resep belum valid") : "Tidak perlu resep"}</span></div>;
+            const linkedRecipe = request.pelanggan_id_pengguna !== null && Number.isSafeInteger(linkedRecipeId)
+              ? recipes.find((recipe) => recipe.id_resep === linkedRecipeId && recipe.pelanggan_id_pengguna === request.pelanggan_id_pengguna && recipe.detail_resep_obat.some((line) => line.id_obat === detail.id_obat))
+              : undefined;
+            const hasRecipe = Boolean(linkedRecipe && ["Disetujui", "Valid"].includes(linkedRecipe.status_validasi ?? ""));
+            const recipeStatus = linkedRecipe?.status_validasi?.toLowerCase();
+            return <div className="pharmacist-request-line" key={detail.id_detail_permintaan_obat}><b>{detail.obat.nama_obat}</b><span>{quantity} {detail.obat.satuan ?? "unit"}</span><span>{money(detail.obat.harga_jual.toString())} / satuan</span><span className={stock >= quantity ? "text-green" : "text-danger"}>Stok {stock >= quantity ? "tersedia" : "tidak cukup"} ({stock})</span><span className={needsRecipe ? (hasRecipe ? "text-green" : "text-danger") : "text-muted"}>{needsRecipe ? (hasRecipe ? "Resep valid" : recipeStatus === "menunggu" ? <Link href={`/apoteker/resep/${linkedRecipeId}`}>Resep menunggu validasi</Link> : recipeStatus === "ditolak" ? "Resep ditolak" : "Resep belum valid") : "Tidak perlu resep"}</span></div>;
           })}</div>
           {request.keterangan && <p className="pharmacist-request-note"><b>Catatan:</b> {request.keterangan}</p>}
           {pending && <form action={reviewRequest} className="request-review-form"><input type="hidden" name="id_permintaan" value={request.id_permintaan}/><label>Alasan penolakan (wajib jika ditolak)<input name="alasan" maxLength={160} placeholder="Alasan penolakan"/></label><button className="pharmacist-button primary" name="keputusan" value="Diproses">Terima Permintaan</button><button className="pharmacist-button danger" name="keputusan" value="Ditolak">Tolak</button></form>}

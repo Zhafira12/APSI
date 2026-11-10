@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
@@ -124,6 +125,8 @@ export async function reviewPrescription(formData: FormData) {
   } catch (error) {
     fail("/apoteker/resep", error instanceof Error ? error.message : "Validasi resep gagal disimpan.");
   }
+  revalidatePath("/apoteker/resep");
+  revalidatePath("/pelanggan");
   redirect(`/apoteker/resep/${id}?success=${decision === "Disetujui" ? "Resep%20disetujui" : "Resep%20ditolak"}`);
 }
 
@@ -228,4 +231,3 @@ export async function createSale(formData: FormData) {
   if (transactionId === null) fail("/apoteker/transaksi", "Transaksi belum dapat disimpan.");
   redirect(`/apoteker/riwayat-transaksi/${transactionId}?success=Transaksi%20tersimpan`);
 }
-

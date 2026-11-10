@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import type { LoginState } from "@/app/login/actions";
 
 type ActorLoginProps = {
@@ -8,6 +9,7 @@ type ActorLoginProps = {
   brand?: string;
   action: (state: LoginState, formData: FormData) => Promise<LoginState>;
   logoutAction: () => Promise<void>;
+  registered?: boolean;
 };
 
 function LogoutIcon() {
@@ -32,6 +34,7 @@ export default function ActorLogin({
   brand = "APOTEK SRI UTAMA",
   action,
   logoutAction,
+  registered = false,
 }: ActorLoginProps) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
@@ -62,13 +65,13 @@ export default function ActorLogin({
           <form className="login-form" action={formAction}>
             <div className="login-field">
               <label htmlFor="username">
-                USERNAME <span aria-hidden="true">*</span>
+                USERNAME ATAU EMAIL <span aria-hidden="true">*</span>
               </label>
               <input
                 autoComplete="username"
                 id="username"
                 name="username"
-                placeholder="Masukkan username"
+                placeholder="Masukkan username atau email"
                 required
                 type="text"
               />
@@ -89,6 +92,7 @@ export default function ActorLogin({
             </div>
 
             <p className="login-required-note"><span aria-hidden="true">*</span> Wajib diisi</p>
+            {registered && <p className="register-success" role="status">Akun berhasil didaftarkan. Silakan login.</p>}
             {state?.error ? (
               <p className="login-error" role="alert">{state.error}</p>
             ) : null}
@@ -96,6 +100,7 @@ export default function ActorLogin({
               {pending ? "MEMERIKSA..." : "LOGIN"}
             </button>
           </form>
+          <p className="register-login-link">Belum memiliki akun? <Link href="/register">Daftar Sekarang</Link></p>
         </div>
       </section>
 

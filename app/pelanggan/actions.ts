@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -29,15 +30,20 @@ export async function submitMedicineRequest(formData: FormData) {
   if (jumlah > stock) redirect(`/pelanggan?obat=${idObat}&error=Stok%20obat%20tidak%20mencukupi`);
 
   const requiresPrescription = /resep|antibiotik|keras/i.test(medicine.golongan_obat?.nama_golongan ?? "");
+  const jakartaDateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const datePart = (type: "year" | "month" | "day") => jakartaDateParts.find((part) => part.type === type)?.value;
+  const todayJakarta = `${datePart("year")}-${datePart("month")}-${datePart("day")}`;
+  const requestDate = new Date(`${todayJakarta}T00:00:00.000Z`);
   const uploaded = formData.get("resep");
+  const hasUploadedRecipe = uploaded instanceof File && uploaded.size > 0;
   const doctor = String(formData.get("nama_dokter") ?? "").trim();
   const prescriptionDate = String(formData.get("tanggal_resep") ?? "");
-  const parsedPrescriptionDate = /^\d{4}-\d{2}-\d{2}$/.test(prescriptionDate) ? new Date(`${prescriptionDate}T00:00:00`) : null;
+  const parsedPrescriptionDate = /^\d{4}-\d{2}-\d{2}$/.test(prescriptionDate) ? new Date(`${prescriptionDate}T00:00:00.000Z`) : null;
   const hasValidPrescriptionDate = parsedPrescriptionDate !== null && !Number.isNaN(parsedPrescriptionDate.getTime()) && parsedPrescriptionDate.toISOString().slice(0, 10) === prescriptionDate;
   let storedRecipe: string | undefined;
-  if (requiresPrescription) {
+  if (requiresPrescription || hasUploadedRecipe) {
     if (!(uploaded instanceof File) || uploaded.size === 0 || uploaded.size > maxUploadBytes || !allowedTypes.has(uploaded.type)) redirect(`/pelanggan?obat=${idObat}&error=Unggah%20resep%20JPG%2C%20PNG%2C%20atau%20PDF%20maksimal%205%20MB`);
-    if (!doctor || doctor.length > 100 || !hasValidPrescriptionDate || parsedPrescriptionDate! > new Date()) redirect(`/pelanggan?obat=${idObat}&error=Isi%20nama%20dokter%20dan%20tanggal%20resep%20dengan%20benar`);
+    if (doctor.length > 100 || (doctor && !hasValidPrescriptionDate) || (prescriptionDate && !hasValidPrescriptionDate) || ((requiresPrescription || hasUploadedRecipe) && (!doctor || !hasValidPrescriptionDate)) || (hasValidPrescriptionDate && prescriptionDate > todayJakarta)) redirect(`/pelanggan?obat=${idObat}&error=Isi%20nama%20dokter%20dan%20tanggal%20resep%20dengan%20benar`);
     const extension = allowedTypes.get(uploaded.type)!;
     storedRecipe = `${randomUUID()}${extension}`;
     const directory = path.join(process.cwd(), "private", "resep");
@@ -59,7 +65,7 @@ export async function submitMedicineRequest(formData: FormData) {
       await tx.permintaan_obat.create({ data: {
         id_permintaan: requestId,
         pelanggan_id_pengguna: session.userId,
-        tanggal_permintaan: new Date(),
+        tanggal_permintaan: requestDate,
         status_permintaan: "Menunggu",
         harga_obat: medicine.harga_jual.mul(jumlah),
         keterangan: [`Pembayaran: ${metode}`, storedRecipe ? `Resep ID: ${recipeId}; private/resep/${storedRecipe}` : "", typeof catatan === "string" ? catatan.slice(0, 90) : ""].filter(Boolean).join(" · ").slice(0, 225),
@@ -76,7 +82,7 @@ export async function submitMedicineRequest(formData: FormData) {
           id_resep: recipeId,
           pelanggan_id_pengguna: session.userId,
           permintaan_obat_id_permintaan: requestId,
-          tanggal_resep: parsedPrescriptionDate!,
+          tanggal_resep: parsedPrescriptionDate,
           nama_pasien: account.nama_pengguna,
           nama_dokter: doctor,
           daftar_obat: `${medicine.nama_obat} x${jumlah}`,
@@ -91,10 +97,14 @@ export async function submitMedicineRequest(formData: FormData) {
         } });
       }
     });
-  } catch {
+  } catch (error) {
+    console.error("Gagal menyimpan permintaan obat pelanggan.", error);
     if (storedRecipe) await rm(path.join(process.cwd(), "private", "resep", storedRecipe), { force: true });
     redirect(`/pelanggan?obat=${idObat}&error=Permintaan%20belum%20dapat%20disimpan`);
   }
+  revalidatePath("/pelanggan");
+  revalidatePath("/apoteker/permintaan");
+  revalidatePath("/apoteker/resep");
   redirect(`/pelanggan?tab=Permintaan%20Obat&success=${storedRecipe ? "prescription" : "request"}`);
 }
 
@@ -124,18 +134,13 @@ export async function continueApprovedRequest(formData: FormData) {
       if (!recipe && prescriptionDetails.length && request.pelanggan_id_pengguna) {
         const legacyRecipeId = request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1];
         const legacyFilename = request.keterangan?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
-        const candidates = await tx.resep_obat.findMany({
-          where: {
-            pelanggan_id_pengguna: request.pelanggan_id_pengguna,
-            status_validasi: { in: ["Disetujui", "Valid"] },
-            id_resep: legacyRecipeId ? Number(legacyRecipeId) : undefined,
-            catatan: !legacyRecipeId && legacyFilename ? { contains: legacyFilename } : undefined,
-            detail_resep_obat: { some: { id_obat: { in: prescriptionDetails.map((detail) => detail.id_obat) } } },
-          },
-          include: { detail_resep_obat: { select: { id_obat: true } } },
-        });
-        const exactCandidates = candidates.filter((candidate) => prescriptionDetails.every((detail) => candidate.detail_resep_obat.some((line) => line.id_obat === detail.id_obat)));
-        if (exactCandidates.length === 1) recipe = exactCandidates[0];
+        const legacyRecipe = legacyRecipeId
+          ? await tx.resep_obat.findUnique({ where: { id_resep: Number(legacyRecipeId) }, include: { detail_resep_obat: { select: { id_obat: true } } } })
+          : legacyFilename
+            ? await tx.resep_obat.findFirst({ where: { pelanggan_id_pengguna: request.pelanggan_id_pengguna, catatan: { contains: legacyFilename } }, include: { detail_resep_obat: { select: { id_obat: true } } } })
+            : null;
+        if (legacyRecipe?.pelanggan_id_pengguna === request.pelanggan_id_pengguna
+          && prescriptionDetails.every((detail) => legacyRecipe.detail_resep_obat.some((line) => line.id_obat === detail.id_obat))) recipe = legacyRecipe;
       }
       for (const detail of request.detail_permintaan_obat) {
         const quantity = Number(detail.jumlah ?? "0");

@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: "Masuk ke sistem Apotek Sri Utama.",
 };
 
-export default function LoginPage() {
-  return <ActorLogin action={login} logoutAction={logout} />;
+type Props = { searchParams: Promise<{ registered?: string }> };
+
+export default async function LoginPage({ searchParams }: Props) {
+  const params = await searchParams;
+  return <ActorLogin action={login} logoutAction={logout} registered={params.registered === "1"} />;
 }

@@ -297,6 +297,29 @@ button { font: inherit; }
   color: #087443;
   cursor: pointer;
 }
+.register-shell { overflow-y: auto; }
+.register-brand-panel { align-items: center; }
+.register-brand-title { color: #087443; font-size: clamp(23px, 2.4vw, 34px); font-weight: 750; letter-spacing: .02em; text-align: center; }
+.register-brand-panel .login-pharmacy-photo { width: min(100%, 620px); aspect-ratio: 1.5 / 1; margin-top: clamp(34px, 5vw, 72px); border-radius: 20px; }
+.register-form-panel { min-height: 100vh; padding: clamp(24px, 3vw, 48px); }
+.register-card { width: min(100%, 790px); border: 1px solid #343a36; border-radius: 30px; padding: clamp(24px, 3.2vw, 52px); background: #fff; box-shadow: 0 16px 44px rgb(20 55 39 / 9%); }
+.register-heading { margin-bottom: 30px; }
+.register-heading h1 { color: #087443; font-size: clamp(28px, 2.4vw, 42px); }
+.register-heading .login-subtitle { color: #64748b; font-size: clamp(14px, 1.25vw, 19px); font-weight: 650; }
+.register-form { gap: 15px; }
+.register-form .login-field label { color: #374151; font-size: 14px; letter-spacing: .015em; }
+.register-form .login-field input { height: 54px; border: 2px solid #d2dbe5; border-radius: 11px; padding: 0 15px; font-size: 15px; }
+.register-form .login-field input::placeholder { color: #94a3b8; font-weight: 550; }
+.register-form .login-field small { color: #77827c; font-size: 11px; }
+.register-password-wrap { position: relative; }
+.register-password-wrap input { padding-right: 95px !important; }
+.password-visibility { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); border: 0; padding: 6px; background: transparent; color: #087443; font-size: 12px; font-weight: 700; cursor: pointer; }
+.register-login-link { margin: 18px 0 0; color: #5c6c63; text-align: center; font-size: 14px; }
+.register-login-link a { color: #087443; font-weight: 700; text-decoration: none; }
+.register-login-link a:hover { text-decoration: underline; }
+.register-success { margin: -6px 0 0; border-radius: 8px; padding: 11px 13px; background: #e8f5ec; color: #087443; font-size: 13px; font-weight: 600; }
+.register-back { display: grid; }
+.register-back svg { width: 23px; height: 23px; }
 
 @media (min-width: 1441px) {
   .login-shell { min-height: max(100vh, 1024px); }
@@ -312,6 +335,10 @@ button { font: inherit; }
   .login-form-panel { padding: 30px 20px 80px; }
   .login-card { max-width: 520px; }
   .login-logout { bottom: 18px; left: 19px; }
+  .register-form-panel { min-height: auto; padding: 26px 20px 84px; }
+  .register-card { max-width: 520px; border-radius: 20px; padding: 26px 22px; }
+  .register-heading { margin-bottom: 24px; }
+  .register-brand-panel .login-pharmacy-photo { aspect-ratio: 2.2 / 1; }
 }
 @media (max-width: 380px) {
   .login-brand-panel { padding-right: 16px; padding-left: 16px; }
