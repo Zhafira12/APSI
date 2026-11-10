@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   color-scheme: light;
@@ -362,11 +362,7 @@ button { font: inherit; }
 .customer-nav-caption,.customer-kicker { margin: 0 0 10px; color: #799184; font-size: 10px; font-weight: 750; letter-spacing: .14em; }
 .customer-nav-caption { padding-left: 13px; }
 .customer-sidebar nav { display: grid; gap: 6px; }
-.customer-nav-link { display: flex; min-height: 46px; align-items: center; gap: 12px; border-radius: 9px; padding: 0 13px; color: #5d7165; font-size: 13px; font-weight: 550; text-decoration: none; transition: background .15s,color .15s; }
-.customer-nav-link span { width: 20px; color: #739080; font-size: 18px; text-align: center; }
-.customer-nav-link:hover,.customer-nav-link.active { background: #eaf5ed; color: #087443; }
-.customer-nav-link.active { font-weight: 700; }
-.customer-nav-link.active span { color: #087443; }
+.customer-nav-link { display: flex; min-height: 38px; align-items: center; gap: 10px; border-radius: 6px; padding: 0 12px; color: #ffffff; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; transition: background-color .15s, color .15s; }
 .customer-side-note { display: grid; gap: 7px; margin-top: auto; border-radius: 12px; padding: 15px; background: #eff8f1; color: #648071; font-size: 11px; line-height: 1.5; }
 .customer-side-note b { color: #285b40; font-size: 12px; font-weight: 600; }
 .customer-content { min-width: 0; padding: 34px clamp(22px, 4vw, 54px) 22px; }
@@ -461,15 +457,15 @@ button { font: inherit; }
 .pharmacist-brand small,.pharmacist-user small { display:block; margin-top:2px; color:#75847b; font-size:8px; }
 .pharmacist-user { display:flex; align-items:center; gap:9px; color:#244733; font-size:11px; font-weight:650; }
 .pharmacist-avatar { display:grid; width:32px; height:32px; place-items:center; border-radius:50%; background:#e8f5ec; color:#087443; }
-.pharmacist-layout { display:grid; min-height:calc(100vh - 76px); grid-template-columns:clamp(205px,18vw,255px) minmax(0,1fr); padding:0 clamp(12px,1.4vw,20px) 20px 0; }
-.pharmacist-sidebar { display:flex; min-height:calc(100vh - 96px); flex-direction:column; border-radius:0 21px 21px 0; margin-top:25px; padding:28px 12px 15px; background:#005b35; color:white; }
+.pharmacist-layout { display:grid; min-height:calc(100vh - 76px); grid-template-columns:clamp(220px,19vw,255px) minmax(0,1fr); padding:0 clamp(12px,1.4vw,20px) 20px 0; }
+.pharmacist-sidebar { display:flex; min-height:calc(100vh - 96px); flex-direction:column; border-radius:0 21px 21px 0; margin-top:25px; padding:28px 12px 15px; background:#005b35; color:#ffffff; }
 .pharmacist-sidebar nav { display:grid; gap:5px; }
-.pharmacist-nav-link { display:flex; min-height:38px; align-items:center; gap:12px; border-radius:6px; padding:0 12px; color:#f0faf3; font-size:12px; font-weight:600; text-decoration:none; transition:background-color .15s; }
-.pharmacist-nav-link svg,.pharmacist-side-logout svg { width:18px; height:18px; flex:0 0 auto; }
-.pharmacist-nav-link:hover,.pharmacist-nav-link.active { background:#087443; color:#fff; }
+.pharmacist-nav-link { display:flex; min-height:38px; align-items:center; gap:10px; border-radius:6px; padding:0 12px; color:#ffffff; font-size:12px; font-weight:600; text-decoration:none; white-space:nowrap; transition:background-color .15s, color .15s; }
+.pharmacist-nav-link svg,.pharmacist-side-logout svg { width:18px; height:18px; flex:0 0 auto; color:#ffffff; }
+.pharmacist-nav-link:hover,.pharmacist-nav-link.active { background:#087443; color:#ffffff; }
 .pharmacist-side-logout { margin-top:auto; padding-top:25px; }
-.pharmacist-side-logout button { display:flex; width:100%; min-height:38px; align-items:center; gap:12px; border:0; border-radius:6px; padding:0 12px; background:transparent; color:#fff; font-size:12px; cursor:pointer; }
-.pharmacist-side-logout button:hover { background:#087443; }
+.pharmacist-side-logout button { display:flex; width:100%; min-height:38px; align-items:center; gap:10px; border:0; border-radius:6px; padding:0 12px; background:transparent; color:#ffffff; font-size:12px; font-weight:600; white-space:nowrap; cursor:pointer; }
+.pharmacist-side-logout button:hover { background:#087443; color:#ffffff; }
 .pharmacist-content { min-width:0; align-self:start; margin-top:25px; border:1px solid #a9c8b3; border-radius:20px; padding:clamp(17px,2vw,28px); background:#e8f5ec; }
 .pharmacist-page-heading { margin:0 0 19px; }
 .pharmacist-page-heading > p,.pharmacist-panel-heading p { margin:0 0 5px; color:#59836a; font-size:9px; font-weight:750; letter-spacing:.13em; }
@@ -632,15 +628,65 @@ button { font: inherit; }
 .customer-logout { border-color: transparent; padding: 4px 0; color: #087443; font-size: 10px; }
 .customer-avatar { display: none; }
 .customer-header-name { font-size: 10px; }
-.customer-layout { max-width: 1440px; min-height: calc(100vh - 64px); grid-template-columns: 215px minmax(0,1fr); padding: 0 22px 18px; }
-.customer-sidebar { min-height: 340px; border: 0; border-radius: 0 22px 22px 0; padding: 35px 13px 18px; background: #005b35; }
-.customer-nav-caption { color: #c3e2cf; }
-.customer-nav-link { min-height: 38px; border-radius: 6px; padding: 0 12px; color: #f0faf3; font-size: 12px; font-weight: 600; }
-.customer-nav-link svg, .customer-side-logout svg { width: 18px; height: 18px; flex: 0 0 auto; color: #fff; }
-.customer-nav-link:hover,.customer-nav-link.active { background: #087443; color: #fff; }
+.customer-layout { max-width: 1440px; min-height: calc(100vh - 64px); grid-template-columns: clamp(220px, 19vw, 250px) minmax(0,1fr); padding: 0 22px 18px; }
+.customer-sidebar { min-height: 340px; border: 0; border-radius: 0 22px 22px 0; padding: 35px 12px 18px; background: #005b35; color: #ffffff; }
+.customer-nav-caption { color: #ffffff; opacity: 0.85; }
+.pharmacist-nav-link,
+.pharmacist-nav-link:link,
+.pharmacist-nav-link:visited,
+.pharmacist-nav-link:hover,
+.pharmacist-nav-link:focus,
+.pharmacist-nav-link:active,
+.pharmacist-nav-link.active,
+.customer-nav-link,
+.customer-nav-link:link,
+.customer-nav-link:visited,
+.customer-nav-link:hover,
+.customer-nav-link:focus,
+.customer-nav-link:active,
+.customer-nav-link.active {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pharmacist-nav-link span,
+.pharmacist-nav-link.active span,
+.customer-nav-link span,
+.customer-nav-link.active span {
+  width: auto;
+  color: #ffffff;
+  font-size: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+.pharmacist-nav-link svg,
+.pharmacist-side-logout svg,
+.customer-nav-link svg,
+.customer-side-logout svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: #ffffff;
+  stroke: currentColor;
+}
+.pharmacist-nav-link:hover,
+.pharmacist-nav-link.active,
+.customer-nav-link:hover,
+.customer-nav-link.active {
+  background: #087443;
+  color: #ffffff;
+}
 .customer-side-logout { margin-top: auto; padding-top: 20px; }
-.customer-side-logout button { display: flex; width: 100%; min-height: 38px; align-items: center; gap: 12px; border: 0; border-radius: 6px; padding: 0 12px; background: transparent; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
-.customer-side-logout button:hover { background: #087443; }
+.customer-side-logout button { display: flex; width: 100%; min-height: 38px; align-items: center; gap: 10px; border: 0; border-radius: 6px; padding: 0 12px; background: transparent; color: #ffffff; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.customer-side-logout button:hover { background: #087443; color: #ffffff; }
 .customer-side-note { background: rgb(255 255 255 / 9%); color: #d0ead9; }
 .customer-side-note b { color: white; }
 .customer-content { align-self: start; min-height: 340px; border: 1px solid #b8d5c1; border-radius: 20px; padding: 25px 26px; background: #e8f5ec; }
@@ -673,5 +719,5 @@ button { font: inherit; }
 .stock-in,.stock-out { font-size: 8px; }
 .medicine-action { min-height: 29px; margin-top: 9px; font-size: 9px; }
 .customer-footer { padding-top: 23px; font-size: 9px; }
-@media(max-width:1050px) { .customer-layout { grid-template-columns: 180px minmax(0,1fr); padding: 0 16px 16px; }.medicine-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:1050px) { .customer-layout { grid-template-columns: 210px minmax(0,1fr); padding: 0 16px 16px; }.medicine-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:720px) { .customer-header { min-height: 58px; }.customer-layout { display:block; padding: 0 12px 12px; }.customer-sidebar { top:58px; border-radius: 0 0 12px 12px; background:#005b35; }.customer-nav-link:hover,.customer-nav-link.active { background:#087443;color:#fff; }.customer-content { min-height:0; margin-top:8px; border-radius:14px; padding:15px 12px; }.customer-welcome { min-height:110px;padding:12px; }.customer-welcome h1 { max-width:75%;font-size:21px; }.welcome-art { width:52px;height:52px;font-size:27px; }.medicine-grid { grid-template-columns:repeat(2,minmax(0,1fr));gap:9px; }.medicine-visual { height:95px; } }
