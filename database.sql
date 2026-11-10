@@ -361,48 +361,48 @@ ON CONFLICT (id_menu) DO NOTHING;
 
 -- 5.2 Owner
 INSERT INTO owner (id_pengguna, menu_id_menu, nama_pengguna, email, username, password_hash, no_hp, alamat, status)
-VALUES (1, 1, 'Desyan Nimra', 'desnimra@gmail.com', 'owner', crypt('nimradesyan42', gen_salt('bf', 10)), '081234567890', 'Padang', 'Aktif')
+VALUES (1, 1, 'Desyan Nimra', 'desnimra@gmail.com', 'owner', '$2b$10$F89mamr/D6crk0FT66RPWeGT1z4CMq2os/j03vwAlWpg3B5Bw2FSK', '081234567890', 'Padang', 'Aktif')
 ON CONFLICT (id_pengguna) DO NOTHING;
 
 -- 5.3 Admin
 INSERT INTO admin (id_pengguna, menu_id_menu, nama_pengguna, email, username, password_hash, no_hp, alamat, status) VALUES
-  (1, 1, 'Zhafira', 'fira@gmail.com', 'admin', crypt('fifir410', gen_salt('bf', 10)), '081234567891', 'Padang', 'Aktif'),
-  (2, 1, 'Budi', 'budi@gmail.com', 'budi_admin', crypt('bud421', gen_salt('bf', 10)), '081411484548', 'Padang', 'Aktif'),
-  (3, 1, 'Putri', 'putri@gmail.com', 'putri_admin', crypt('tri2545', gen_salt('bf', 10)), '08164481354', 'Padang', 'Aktif'),
-  (4, 1, 'Zahra', 'zahra@gmail.com', 'zahra_admin', crypt('zara825', gen_salt('bf', 10)), '08191184148', 'Padang', 'Aktif'),
-  (5, 1, 'Siti', 'siti@gmail.com', 'siti_admin', crypt('151siti', gen_salt('bf', 10)), '08916642879', 'Padang', 'Aktif'),
-  (6, 1, 'Gardana', 'gardana@gmail.com', 'gardana_admin', crypt('gardana58', gen_salt('bf', 10)), '08164734423', 'Padang', 'Aktif')
+  (1, 1, 'Zhafira', 'fira@gmail.com', 'admin', '$2b$10$6PiAhyJG5rBsN/S4XD1RK.T68AhlMhJyLo.wh8qG2ceb00muwrH7y', '081234567891', 'Padang', 'Aktif'),
+  (2, 1, 'Budi', 'budi@gmail.com', 'budi_admin', '$2b$10$TR5mGjfOrflavBE0wl6an.lwG26M9zrwojysvIIW3iGz/8whahjN.', '081411484548', 'Padang', 'Aktif'),
+  (3, 1, 'Putri', 'putri@gmail.com', 'putri_admin', '$2b$10$FOwK/ckkLSTEAGZKXCHmyeBE.NXRSQD6ykYbEJ162bCUf/7ECO8Z.', '08164481354', 'Padang', 'Aktif'),
+  (4, 1, 'Zahra', 'zahra@gmail.com', 'zahra_admin', '$2b$10$DC0CccUO1jg4a8g/NFSyLez2ifF8KUh0PGTiCfa.qveoijBtnoiAq', '08191184148', 'Padang', 'Aktif'),
+  (5, 1, 'Siti', 'siti@gmail.com', 'siti_admin', '$2b$10$0uRHjhknpnTi2R4L/pbFQeT4wmAkEoph4Shjlt9GQ4d4Oe2QCLKve', '08916642879', 'Padang', 'Aktif'),
+  (6, 1, 'Gardana', 'gardana@gmail.com', 'gardana_admin', '$2b$10$hQF5Tx9RSPg.PP0ls1muXeKRCkQjuqcTLYxeSBAu4KDeeZpgjRfGW', '08164734423', 'Padang', 'Aktif')
 ON CONFLICT (id_pengguna) DO NOTHING;
 
 -- 5.4 Asisten Apoteker
 INSERT INTO asisten_apoteker (id_pengguna, menu_id_menu, nama_pengguna, email, username, password_hash, no_hp, alamat, status) VALUES
-  (1, 1, 'Poppy', 'pipop@gmail.com', 'asisten', crypt('poppyy34', gen_salt('bf', 10)), '081234567893', 'Padang', 'Aktif'),
-  (2, 1, 'Judika', 'judika@gmail.com', 'judika', crypt('judka7', gen_salt('bf', 10)), '081832394651', 'Padang', 'Aktif'),
-  (3, 1, 'Alex', 'alex@gmail.com', 'alex', crypt('lex29', gen_salt('bf', 10)), '08346331651', 'Padang', 'Aktif'),
-  (4, 1, 'Aliyah', 'aliyah@gmail.com', 'aliyah', crypt('liya11222', gen_salt('bf', 10)), '08135487321', 'Padang', 'Aktif'),
-  (5, 1, 'Raffa', 'raffa@gmail.com', 'raffa', crypt('raff89', gen_salt('bf', 10)), '08413863418', 'Padang', 'Aktif'),
-  (6, 1, 'Salwa', 'salwa@gmail.com', 'salwa', crypt('waa2283', gen_salt('bf', 10)), '08133476434', 'Padang', 'Aktif')
+  (1, 1, 'Poppy', 'pipop@gmail.com', 'asisten', '$2b$10$19zBRzei0wfJRvoQcwgEseYpo7IA9FKx7Skr929dj5BNBsBhUCefm', '081234567893', 'Padang', 'Aktif'),
+  (2, 1, 'Judika', 'judika@gmail.com', 'judika', '$2b$10$ggf8pP92D2b1DAtfg6ZAxeSXBR1vc0IW/j6oLilSw72fXJeXrHniu', '081832394651', 'Padang', 'Aktif'),
+  (3, 1, 'Alex', 'alex@gmail.com', 'alex', '$2b$10$3hcaUxGfy2u43mZeQK4SueSwYyRwL1ZW0ejR5qmeQZ9UNHw3LoHtG', '08346331651', 'Padang', 'Aktif'),
+  (4, 1, 'Aliyah', 'aliyah@gmail.com', 'aliyah', '$2b$10$u2fcDGC7GxWOQcOMVC5n0.5DDfo6MOMWIhCc5yJXGTQ0cecprryRq', '08135487321', 'Padang', 'Aktif'),
+  (5, 1, 'Raffa', 'raffa@gmail.com', 'raffa', '$2b$10$t6.UsrSaiXh3y3jJnsucmeREUZX5vx8cWrTzG3D1.vUARIPN4Ra6m', '08413863418', 'Padang', 'Aktif'),
+  (6, 1, 'Salwa', 'salwa@gmail.com', 'salwa', '$2b$10$OREZpCZMlEgtTpAwbAKVzOcMzVqRZ0hd2HFpQPEuMPdjau3SzoT9i', '08133476434', 'Padang', 'Aktif')
 ON CONFLICT (id_pengguna) DO NOTHING;
 
 -- 5.5 Apoteker
 INSERT INTO apoteker (id_pengguna, menu_id_menu, nama_pengguna, email, username, password_hash, no_hp, alamat, status) VALUES
-  (1, 1, 'Alinda', 'alinda@apotek-sriutama.test', 'alinda', crypt('Apoteker123!', gen_salt('bf', 10)), '081234567800', 'Padang', 'Aktif'),
-  (2, 1, 'Deri', 'derri@gmail.com', 'apoteker', crypt('riderr093', gen_salt('bf', 10)), '081234567892', 'Padang', 'Aktif'),
-  (3, 1, 'Doni', 'doni@gmail.com', 'doni', crypt('don55', gen_salt('bf', 10)), '08216161116', 'Padang', 'Aktif'),
-  (4, 1, 'Ikhsan', 'ikhsan@gmail.com', 'ikhsan', crypt('ikhsan_318', gen_salt('bf', 10)), '08681320163', 'Padang', 'Aktif'),
-  (5, 1, 'Farid', 'farid@gmail.com', 'farid', crypt('far11id', gen_salt('bf', 10)), '08642261336', 'Padang', 'Aktif'),
-  (6, 1, 'Fikri', 'fikri@gmail.com', 'fikri', crypt('fik558', gen_salt('bf', 10)), '08399857231', 'Padang', 'Aktif'),
-  (7, 1, 'Alim', 'alim@gmail.com', 'alim', crypt('rlim584', gen_salt('bf', 10)), '08637922153', 'Padang', 'Aktif')
+  (1, 1, 'Alinda', 'alinda@apotek-sriutama.test', 'alinda', '$2b$10$gzJv7xGVOCh8XlWh9pA3muWSeH81YCSIsGzADp.qRNDUJDJ1gWoYy', '081234567800', 'Padang', 'Aktif'),
+  (2, 1, 'Deri', 'derri@gmail.com', 'apoteker', '$2b$10$mMg6SX91uxLuxZksqrrfBuLDxbVN/wpFUH1UjY./bbsvpTmrKze/O', '081234567892', 'Padang', 'Aktif'),
+  (3, 1, 'Doni', 'doni@gmail.com', 'doni', '$2b$10$0sLvGeCJM8K3AyAl.0y6H.N2hj3y35DMIHweX92ZCnlsG/3X34seG', '08216161116', 'Padang', 'Aktif'),
+  (4, 1, 'Ikhsan', 'ikhsan@gmail.com', 'ikhsan', '$2b$10$xq0Y0IwLdlwFuQrDd2ce5OF/VmwymV/aGXC8VMbRBSHD9cN2lJ.0y', '08681320163', 'Padang', 'Aktif'),
+  (5, 1, 'Farid', 'farid@gmail.com', 'farid', '$2b$10$JeaXSzwAzmkC4Igmx2x2Y.EnmYJgn8uRhy0yIdbIz2qHbXbdml49q', '08642261336', 'Padang', 'Aktif'),
+  (6, 1, 'Fikri', 'fikri@gmail.com', 'fikri', '$2b$10$seBB6B07Sb8A1O3/NmNyCuQxWGiaxW0xr64I6KMsjBPtlqQHjwpaK', '08399857231', 'Padang', 'Aktif'),
+  (7, 1, 'Alim', 'alim@gmail.com', 'alim', '$2b$10$7meX2p39tFmrh/.AG2rV4OoEMWf4mfrmiCNeSwbSAD1sW0qYAqGYi', '08637922153', 'Padang', 'Aktif')
 ON CONFLICT (id_pengguna) DO NOTHING;
 
 -- 5.6 Pelanggan
 INSERT INTO pelanggan (id_pengguna, menu_id_menu, nama_pengguna, email, username, password_hash, no_hp, alamat, status) VALUES
-  (3, 1, 'Mulan', 'mulan@gmail.com', 'mulan', crypt('mulan123', gen_salt('bf', 10)), '081111111111', 'Jl. Permai No. 5, Padang', 'Aktif'),
-  (4, 1, 'Pevita', 'pevita@gmail.com', 'pevita', crypt('pevita123', gen_salt('bf', 10)), '082222222222', 'Jl. Raya Siteba No. 25, Padang', 'Aktif'),
-  (5, 1, 'Ibnu', 'ibnu@gmail.com', 'ibnu', crypt('ibnu123', gen_salt('bf', 10)), '085265485358', 'Jl. Raya Balai Gadang No. 8, Padang', 'Aktif'),
-  (6, 1, 'Dion', 'dion@gmail.com', 'dion', crypt('dion123', gen_salt('bf', 10)), '085365780957', 'Jl. Andalas No. 19, Padang', 'Aktif'),
-  (7, 1, 'Panji', 'panji@gmail.com', 'panji', crypt('panji123', gen_salt('bf', 10)), '083364185456', 'Jl. Ampang No. 12, Padang', 'Aktif'),
-  (8, 1, 'Kevin', 'kevin@gmail.com', 'kevin', crypt('kevin123', gen_salt('bf', 10)), '082363233247', 'Jl. Cupak Tangah No. 21, Padang', 'Aktif')
+  (3, 1, 'Mulan', 'mulan@gmail.com', 'mulan', '$2b$10$U.CS1m5ywwfPLnj0AK8Ni.ELTyrR9R5NeB0gSryxPHADYqCu2BRyG', '081111111111', 'Jl. Permai No. 5, Padang', 'Aktif'),
+  (4, 1, 'Pevita', 'pevita@gmail.com', 'pevita', '$2b$10$QpIpvp13Zewz5KOYh2uy5eZyrNImwfPzivwJgwV/PQ24u95m29hF2', '082222222222', 'Jl. Raya Siteba No. 25, Padang', 'Aktif'),
+  (5, 1, 'Ibnu', 'ibnu@gmail.com', 'ibnu', '$2b$10$3zODwoCbLQBNwF86u82M5OT9b1qHe0JptPvbxW7qDqyg/zws65tZm', '085265485358', 'Jl. Raya Balai Gadang No. 8, Padang', 'Aktif'),
+  (6, 1, 'Dion', 'dion@gmail.com', 'dion', '$2b$10$6SczGNBLx70h1EDhCfwAXu4bpNYvuzo4AEevopQAPowDSL/Qzx7f.', '085365780957', 'Jl. Andalas No. 19, Padang', 'Aktif'),
+  (7, 1, 'Panji', 'panji@gmail.com', 'panji', '$2b$10$wu3kBBXhDy/cyuLVfvVz/uvPQWcMgSnH80EK5W3rKsU1jZUQ84/dm', '083364185456', 'Jl. Ampang No. 12, Padang', 'Aktif'),
+  (8, 1, 'Kevin', 'kevin@gmail.com', 'kevin', '$2b$10$H7eLjTPcJe7l1keU.zc.ye8EIXcAQuYDv4K0R26REaMkV1X8zs/F6', '082363233247', 'Jl. Cupak Tangah No. 21, Padang', 'Aktif')
 ON CONFLICT (id_pengguna) DO NOTHING;
 
 -- 5.7 Golongan Obat

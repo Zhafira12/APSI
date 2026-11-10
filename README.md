@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistem Informasi Apotek Sri Utama (Modul IV APSI)
 
-## Getting Started
+Aplikasi berbasis Web untuk **Apotek Sri Utama** yang dibangun menggunakan **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma ORM**, dan **PostgreSQL** (Docker Desktop untuk pengembangan lokal & Neon Serverless PostgreSQL untuk cloud deployment di Vercel).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Fitur Utama & Role Pengguna (Sesuai Permission Matrix)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Owner**:
+   - Login ke sistem dan memantau **Dashboard Metrik Operasional**.
+   - Melihat katalog obat (*Read-Only*), jumlah stok real-time, riwayat transaksi apotek, serta **Laporan Penjualan & Stok**.
+2. **Admin**:
+   - Mengelola katalog obat (**CRUD Obat**), mencatat penerimaan & penyesuaian **Stok Obat**.
+   - Melihat dan menindaklanjuti **Permintaan Obat** pelanggan.
+   - Melayani transaksi penjualan langsung melalui **Kasir POS** (dengan pemotongan stok atomik) dan mencetak struk penjualan.
+   - Melihat rekap transaksi dan laporan operasional.
+3. **Apoteker**:
+   - Memeriksa dan melakukan **Validasi Resep Dokter** (*Setujui / Tolak* beserta alasan) serta menginspeksi dokumen digital resep pelanggan melalui endpoint terproteksi.
+   - Mengelola katalog obat, stok obat, permintaan obat pelanggan, transaksi Kasir POS, dan laporan operasional apotek.
+4. **Pelanggan**:
+   - Registrasi akun mandiri dan login ke portal pelanggan (`/pelanggan`).
+   - Mencari & memfilter katalog obat berdasarkan golongan obat.
+   - Mengajukan permintaan/pemesanan obat (Tunai/QRIS) dan **mengunggah berkas resep dokter** (JPG, PNG, PDF maks. 5 MB) untuk obat keras/antibiotik.
+   - Melanjutkan pesanan yang telah disetujui Apoteker menjadi transaksi dan memantau riwayat transaksi pribadi.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Arsitektur & Struktur Direktori
 
-## Learn More
+- `database.sql` — Definisi DDL & DML 18 tabel relasional beserta constraint PK/FK, indeks, dan seed data awal dengan password ter-hash bcrypt (`pgcrypto`).
+- `prisma/schema.prisma` — Hasil introspeksi skema basis data PostgreSQL (`npx prisma db pull`).
+- `Permission_Matrix_Apotek_Sri_Utama.xlsx` — Matriks Hak Akses (Permission Matrix) 4 role utama terhadap seluruh modul/sumber daya.
+- `AGENTS.md` — Dokumentasi *Context Engineering* (kerangka *Context–Feature–Constraint* / CFC), integrasi **Figma MCP Server**, dan catatan prompt pengembangan.
+- `app/` — Halaman frontend (*Presentation Layer*), Server Actions, dan REST API Route Handlers (`app/api/*/route.ts`).
+- `lib/` — Modul autentikasi sesi HMAC-SHA256 (`lib/auth.ts`), *Role-Based Access Control* (`lib/apoteker-access.ts`), penyimpanan resep kompatibel serverless (`lib/recipe-storage.ts`), dan instansiasi Prisma (`lib/prisma.ts`).
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Endpoint REST API (`app/api/*/route.ts`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Endpoint | Metode | Role yang Diizinkan | Deskripsi |
+|---|---|---|---|
+| `/api/obat` | `GET`, `POST` | Semua Role (`GET`), Admin/Apoteker (`POST`) | Mengambil daftar katalog obat & stok terkini; menambah data obat baru secara atomik. |
+| `/api/stok` | `GET` | Semua Role | Menampilkan saldo stok real-time dan log riwayat perubahan stok. |
+| `/api/transaksi` | `GET` | Semua Role | Mengambil rekap transaksi apotek (untuk staf) atau riwayat transaksi pribadi (untuk pelanggan). |
+| `/api/laporan` | `GET` | Owner, Admin, Apoteker | Mengambil metrik ringkasan penjualan, stok minimum, dan arsip laporan. |
+| `/api/apoteker/resep/[filename]` | `GET` | Apoteker | Menyajikan dokumen digital resep dokter secara aman (mendukung file lokal, `/tmp`, dan data database). |
+| `/api/test-db` | `GET` | Owner, Admin, Apoteker | Verifikasi konektivitas database PostgreSQL dan daftar 18 tabel. |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Cara Menjalankan Secara Lokal
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Salin file `.env.example` menjadi `.env` dan sesuaikan `DATABASE_URL` serta `AUTH_SECRET`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Jalankan container PostgreSQL pada Docker Desktop dan eksekusi skrip `database.sql`.
+3. Generate Prisma Client dan jalankan server pengembangan:
+   ```bash
+   npx prisma generate
+   npm run dev
+   ```
+4. Buka `http://localhost:3000` pada browser.
+
+---
+
+## Deployment (Neon PostgreSQL & Vercel)
+
+1. Buat project database PostgreSQL pada **Neon** dan salin connection string `DATABASE_URL`.
+2. Terapkan struktur tabel ke Neon menggunakan `npx prisma db push` dan jalankan `database.sql` pada **Neon SQL Editor**.
+3. Hubungkan repository GitHub ke **Vercel**, tambahkan environment variables `DATABASE_URL` dan `AUTH_SECRET`, lalu jalankan *Deploy*.
