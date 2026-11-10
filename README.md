@@ -2,6 +2,9 @@
 
 Aplikasi berbasis Web untuk **Apotek Sri Utama** yang dibangun menggunakan **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma ORM**, dan **PostgreSQL** (Docker Desktop untuk pengembangan lokal & Neon Serverless PostgreSQL untuk cloud deployment di Vercel).
 
+- **Link Aplikasi Hasil Deploy (Vercel)**: [https://apsi-mocha.vercel.app/](https://apsi-mocha.vercel.app/)
+- **Repository GitHub**: [https://github.com/Zhafira12/APSI](https://github.com/Zhafira12/APSI)
+
 ---
 
 ## Fitur Utama & Role Pengguna (Sesuai Permission Matrix)
