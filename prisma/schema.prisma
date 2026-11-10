@@ -93,12 +93,12 @@ model detail_permintaan_obat {
 }
 
 model detail_resep_obat {
-  id_detail_resep Int         @id
+  id_detail_resep Int     @id
   id_obat         Int
   id_resep        Int?
-  jumlah          String?     @db.VarChar(30)
-  aturan_pakai    String?     @db.VarChar(255)
-  obat            obat        @relation(fields: [id_obat], references: [id_obat], map: "fk_detail_resep_obat")
+  jumlah          String? @db.VarChar(30)
+  aturan_pakai    String? @db.VarChar(255)
+  obat            obat    @relation(fields: [id_obat], references: [id_obat], map: "fk_detail_resep_obat")
   resep_obat      resep_obat? @relation(fields: [id_resep], references: [id_resep], onDelete: Cascade, onUpdate: Cascade, map: "fk_detail_resep_header")
 }
 
@@ -239,27 +239,28 @@ model permintaan_obat {
   detail_permintaan_obat detail_permintaan_obat[]
   obat                   obat[]
   pelanggan              pelanggan?               @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_permintaan_pelanggan")
-  resep_obat             resep_obat?
 
   @@index([tanggal_permintaan], map: "idx_permintaan_tanggal")
+  resep_obat resep_obat?
 }
 
 model resep_obat {
-  id_resep                      Int                 @id
-  apoteker_id_pengguna          Int?
-  pelanggan_id_pengguna         Int?
-  permintaan_obat_id_permintaan Int?                @unique
-  tanggal_resep                 DateTime?           @db.Date
-  nama_pasien                   String?             @db.VarChar(100)
-  nama_dokter                   String?             @db.VarChar(100)
-  daftar_obat                   String?             @db.VarChar(225)
-  status_validasi               String?             @db.VarChar(30)
-  catatan                       String?             @db.VarChar(225)
-  obat                          obat[]
-  apoteker                      apoteker?           @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_resep_apoteker")
-  pelanggan                     pelanggan?          @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_resep_pelanggan")
-  permintaan_obat               permintaan_obat?    @relation(fields: [permintaan_obat_id_permintaan], references: [id_permintaan], onDelete: SetNull, map: "fk_resep_permintaan")
-  detail_resep_obat             detail_resep_obat[]
+  id_resep              Int        @id
+  apoteker_id_pengguna  Int?
+  pelanggan_id_pengguna Int? 
+  tanggal_resep         DateTime?  @db.Date
+  nama_pasien           String?    @db.VarChar(100)
+  nama_dokter           String?    @db.VarChar(100)
+  daftar_obat           String?    @db.VarChar(225)
+  status_validasi       String?    @db.VarChar(30)
+  catatan               String?    @db.VarChar(225)
+  file_resep            String?    @db.VarChar(500)
+  permintaan_obat_id_permintaan Int? @unique
+  obat                  obat[]
+  apoteker              apoteker?  @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_resep_apoteker")
+  pelanggan             pelanggan? @relation(fields: [pelanggan_id_pengguna], references: [id_pengguna], map: "fk_resep_pelanggan")
+  permintaan_obat permintaan_obat? @relation(fields: [permintaan_obat_id_permintaan], references: [id_permintaan])
+  detail_resep_obat     detail_resep_obat[]
 
   @@index([tanggal_resep], map: "idx_resep_tanggal")
 }
