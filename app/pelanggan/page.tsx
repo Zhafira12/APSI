@@ -13,18 +13,19 @@ import { Suspense } from "react";
 
 export const metadata: Metadata = { title: "Beranda Pelanggan | Apotek Sri Utama", description: "Cari dan ajukan permintaan obat di Apotek Sri Utama." };
 
+export const dynamic = "force-dynamic";
+
 type PageProps = { searchParams: Promise<{ q?: string; golongan?: string; obat?: string; tab?: string; error?: string; success?: string; purchase?: string }> };
 type CustomerRequest = { id_permintaan: number; tanggal_permintaan: Date | null; status_permintaan: string | null; keterangan: string | null; resep_obat: CustomerPrescription | null; detail_permintaan_obat: { id_obat: number; jumlah: string | null; obat: { nama_obat: string; golongan_obat: { nama_golongan: string } | null; stok_obat: { id_stok: number; jumlah_stok: number; tanggal_update: Date | null; keterangan: string | null }[] } }[] };
 type CustomerPrescription = { id_resep: number; status_validasi: string | null; catatan: string | null; detail_resep_obat: { id_obat: number }[] };
 const money = (value: number | string) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
 const nav = ["Beranda", "Daftar Obat", "Permintaan Obat", "Riwayat Transaksi", "Profil"] as const;
 
-export default function BerandaPelangganPage({ searchParams }: PageProps) {
-  return <Suspense fallback={<main className="customer-app" aria-busy="true">Memuat beranda pelanggan…</main>}><CustomerHome searchParams={searchParams}/></Suspense>;
+export default async function BerandaPelangganPage({ searchParams }: PageProps) {
+  return <CustomerHome searchParams={searchParams}/>;
 }
 
 async function CustomerHome({ searchParams }: PageProps) {
-  await connection();
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "pelanggan") redirect("/");
@@ -44,9 +45,17 @@ async function CustomerHome({ searchParams }: PageProps) {
   const activeTab = params.tab ?? "Beranda";
   const selected = params.obat ? medicines.find((item) => item.id_obat === Number(params.obat)) : undefined;
   const selectedStock = selected ? currentStock(selected.stok_obat) : 0;
-  // The current schema links a customer's transaction through this FK. Keep the
-  // history query scoped to that account rather than querying the whole table.
-  const transactions = account.transaksi_id_transaksi ? await prisma.transaksi.findMany({ where: { id_transaksi: account.transaksi_id_transaksi }, include: { detail_transaksi: true }, orderBy: { tanggal: "desc" } }) : [];
+  // Query customer's transactions both via direct FK and customer name so all past transactions appear
+  const transactions = await prisma.transaksi.findMany({
+    where: {
+      OR: [
+        ...(account.transaksi_id_transaksi ? [{ id_transaksi: account.transaksi_id_transaksi }] : []),
+        { nama_pelanggan: { equals: account.nama_pengguna, mode: "insensitive" } },
+      ],
+    },
+    include: { detail_transaksi: true },
+    orderBy: [{ tanggal: "desc" }, { id_transaksi: "desc" }],
+  });
 
   return <main className="customer-app">
     <header className="customer-header"><Link className="customer-brand" href="/pelanggan"><span className="customer-brand-mark" aria-hidden="true">✚</span><span><b>APOTEK SRI UTAMA</b><small>Sehat Bersama, Setiap Saat</small></span></Link><div className="customer-header-right"><span className="customer-avatar">{account.nama_pengguna.slice(0,1).toUpperCase()}</span><span className="customer-header-name">{account.nama_pengguna}</span><form action={logout}><button className="customer-logout" type="submit">Keluar</button></form></div></header>

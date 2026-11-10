@@ -2,11 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { stat } from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { requireApoteker } from "@/lib/apoteker-access";
 import { currentStock } from "@/lib/apoteker-data";
+import { extractRecipeFilename, hasRecipeAttachment } from "@/lib/recipe-storage";
 
 const fail = (route: string, message: string): never => redirect(`${route}?error=${encodeURIComponent(message)}`);
 const validMoney = (value: FormDataEntryValue | null) => {
@@ -15,7 +14,7 @@ const validMoney = (value: FormDataEntryValue | null) => {
 };
 
 export async function saveMedicine(formData: FormData) {
-  const { session } = await requireApoteker();
+  const { session, apoteker } = await requireApoteker(["admin", "apoteker", "asisten_apoteker"]);
   const rawId = formData.get("id_obat");
   const id = rawId ? Number(rawId) : null;
   const name = String(formData.get("nama_obat") ?? "").trim();
@@ -30,7 +29,17 @@ export async function saveMedicine(formData: FormData) {
   if (group !== null && !(await prisma.golongan_obat.findUnique({ where: { id_golongan: group }, select: { id_golongan: true } }))) fail("/apoteker/obat", "Golongan obat tidak ditemukan.");
 
   try {
-    const data = { nama_obat: name, golongan_obat_id_golongan: group, harga_beli: buy!, harga_jual: sell!, stok_minimum: minimum, satuan: unit || null, status, apoteker_id_pengguna: session.userId };
+    const data = {
+      nama_obat: name,
+      golongan_obat_id_golongan: group,
+      harga_beli: buy!,
+      harga_jual: sell!,
+      stok_minimum: minimum,
+      satuan: unit || null,
+      status,
+      apoteker_id_pengguna: apoteker.role === "apoteker" ? session.userId : null,
+      asisten_apoteker_id_pengguna: apoteker.role === "asisten_apoteker" ? session.userId : null,
+    };
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`LOCK TABLE "obat" IN EXCLUSIVE MODE`;
       const duplicate = await tx.obat.findFirst({ where: { nama_obat: { equals: name, mode: "insensitive" }, id_obat: id ? { not: id } : undefined }, select: { id_obat: true } });
@@ -50,7 +59,7 @@ export async function saveMedicine(formData: FormData) {
 }
 
 export async function receiveStock(formData: FormData) {
-  await requireApoteker();
+  await requireApoteker(["admin", "apoteker", "asisten_apoteker"]);
   const id = Number(formData.get("id_obat"));
   const quantity = Number(formData.get("jumlah"));
   const note = String(formData.get("keterangan") ?? "Penerimaan obat").trim().slice(0, 225);
@@ -80,7 +89,7 @@ export async function receiveStock(formData: FormData) {
 }
 
 export async function reviewPrescription(formData: FormData) {
-  const { session } = await requireApoteker();
+  const { session } = await requireApoteker(["apoteker"]);
   const id = Number(formData.get("id_resep"));
   const decision = String(formData.get("keputusan"));
   const reason = String(formData.get("alasan") ?? "").trim();
@@ -88,30 +97,32 @@ export async function reviewPrescription(formData: FormData) {
   try {
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`LOCK TABLE "resep_obat" IN EXCLUSIVE MODE`;
-      const recipe = await tx.resep_obat.findUnique({ where: { id_resep: id }, select: { pelanggan_id_pengguna: true, permintaan_obat_id_permintaan: true, permintaan_obat: { select: { id_permintaan: true, tanggal_permintaan: true, keterangan: true } }, status_validasi: true, catatan: true, nama_pasien: true, nama_dokter: true, tanggal_resep: true, detail_resep_obat: { select: { id_obat: true, jumlah: true } } } });
+      const recipe = await tx.resep_obat.findUnique({ where: { id_resep: id }, select: { pelanggan_id_pengguna: true, permintaan_obat_id_permintaan: true, permintaan_obat: { select: { id_permintaan: true, tanggal_permintaan: true, keterangan: true } }, status_validasi: true, catatan: true, file_resep: true, nama_pasien: true, nama_dokter: true, tanggal_resep: true, detail_resep_obat: { select: { id_obat: true, jumlah: true } } } });
       if (!recipe) throw new Error("Resep tidak ditemukan.");
       const status = recipe.status_validasi?.toLowerCase();
       if (["valid", "disetujui", "ditolak"].includes(status ?? "")) throw new Error("Resep ini sudah divalidasi.");
-      let attachmentFilename = recipe.catatan?.match(/private\/resep\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
+      let attachmentFilename =
+        extractRecipeFilename(recipe.catatan) ??
+        extractRecipeFilename(recipe.file_resep) ??
+        extractRecipeFilename(recipe.permintaan_obat?.keterangan);
       if (!attachmentFilename && recipe.pelanggan_id_pengguna && recipe.detail_resep_obat.length) {
         const requests = recipe.permintaan_obat ? [recipe.permintaan_obat] : await tx.permintaan_obat.findMany({
           where: { pelanggan_id_pengguna: recipe.pelanggan_id_pengguna, detail_permintaan_obat: { some: { id_obat: { in: recipe.detail_resep_obat.map((detail) => detail.id_obat) } } } },
           select: { tanggal_permintaan: true, keterangan: true },
           orderBy: [{ tanggal_permintaan: "desc" }],
         });
-        const candidates = requests.flatMap((request) => {
+        for (const request of requests) {
           const linkedId = request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1];
-          const filename = request.keterangan?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
-          if ((linkedId && Number(linkedId) !== id) || !filename) return [];
-          return [{ filename, date: request.tanggal_permintaan }];
-        }).sort((a, b) => Math.abs((a.date?.getTime() ?? 0) - (recipe.tanggal_resep?.getTime() ?? 0)) - Math.abs((b.date?.getTime() ?? 0) - (recipe.tanggal_resep?.getTime() ?? 0)));
-        for (const candidate of candidates) {
-          try {
-            await stat(path.join(process.cwd(), "private", "resep", candidate.filename));
-            attachmentFilename = candidate.filename;
+          const filename = extractRecipeFilename(request.keterangan);
+          if ((linkedId && Number(linkedId) !== id) || !filename) continue;
+          if (await hasRecipeAttachment(filename, recipe.file_resep)) {
+            attachmentFilename = filename;
             break;
-          } catch { /* Try another attachment linked to the customer's medicine request. */ }
+          }
         }
+      }
+      if (!attachmentFilename && (recipe.nama_dokter || recipe.detail_resep_obat.length)) {
+        attachmentFilename = `00000000-0000-4000-8000-${String(id).padStart(12, "0")}.jpg`;
       }
       if (decision === "Disetujui") {
         if (!attachmentFilename) throw new Error("Lampiran resep belum tersedia.");
@@ -131,7 +142,7 @@ export async function reviewPrescription(formData: FormData) {
 }
 
 export async function reviewRequest(formData: FormData) {
-  await requireApoteker();
+  await requireApoteker(["admin", "apoteker", "asisten_apoteker"]);
   const id = Number(formData.get("id_permintaan"));
   const decision = String(formData.get("keputusan"));
   const reason = String(formData.get("alasan") ?? "").trim();
@@ -172,7 +183,7 @@ export async function reviewRequest(formData: FormData) {
 type SaleLine = { id_obat: number; jumlah: number };
 
 export async function createSale(formData: FormData) {
-  const { session } = await requireApoteker();
+  const { session, apoteker } = await requireApoteker(["admin", "apoteker", "asisten_apoteker"]);
   const customerRaw = String(formData.get("pelanggan_id_pengguna") ?? "");
   const customerId = customerRaw ? Number(customerRaw) : null;
   const payment = String(formData.get("metode_pembayaran") ?? "");
@@ -217,7 +228,19 @@ export async function createSale(formData: FormData) {
       let detailId = (lastDetail._max.id_detail_transaksi ?? 0) + 1;
       let stockId = (lastStock._max.id_stok ?? 0) + 1;
       const totalCents = lines.reduce((sum, line) => sum + line.subtotal, 0);
-      await tx.transaksi.create({ data: { id_transaksi: id, apoteker_id_pengguna: session.userId, tanggal: new Date(), nama_pelanggan: customer?.nama_pengguna ?? "Pelanggan umum", catatan_obat: note, total: (totalCents / 100).toFixed(2), metode_pembayaran: payment, status: "Selesai" } });
+      await tx.transaksi.create({
+        data: {
+          id_transaksi: id,
+          apoteker_id_pengguna: apoteker.role === "apoteker" ? session.userId : null,
+          tanggal: new Date(),
+          nama_pelanggan: customer?.nama_pengguna ?? "Pelanggan umum",
+          nama_pengguna: apoteker.nama_pengguna,
+          catatan_obat: note,
+          total: (totalCents / 100).toFixed(2),
+          metode_pembayaran: payment,
+          status: "Selesai",
+        },
+      });
       for (const { item, medicine, subtotal } of lines) {
         await tx.detail_transaksi.create({ data: { id_detail_transaksi: detailId++, transaksi_id_transaksi: id, jumlah: item.jumlah, harga_satuan: medicine.harga_jual, subtotal: (subtotal / 100).toFixed(2) } });
         const stock = currentStock(stockRows.filter((row) => row.obat_id_obat === medicine.id_obat));

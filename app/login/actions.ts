@@ -2,10 +2,12 @@
 
 import { compare } from "bcryptjs";
 import { redirect } from "next/navigation";
-import { createSession, deleteSession } from "@/lib/auth";
+import { createSession, deleteSession, type UserRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export type LoginState = { error: string } | undefined;
+
+type AccountRow = { id_pengguna: number; password_hash: string; status: string };
 
 export async function login(_previousState: LoginState, formData: FormData): Promise<LoginState> {
   const username = formData.get("username");
@@ -14,35 +16,65 @@ export async function login(_previousState: LoginState, formData: FormData): Pro
     return { error: "Username atau password salah." };
   }
 
-  let apoteker: { id_pengguna: number; password_hash: string; status: string } | null;
-  let pelangganByUsername: { id_pengguna: number; password_hash: string; status: string } | null;
-  let pelangganByEmail: { id_pengguna: number; password_hash: string; status: string } | null;
+  const identifier = username.trim();
+  const isEmail = identifier.includes("@");
+
+  let owner: AccountRow | null = null;
+  let admin: AccountRow | null = null;
+  let apoteker: AccountRow | null = null;
+  let asisten: AccountRow | null = null;
+  let pelanggan: AccountRow | null = null;
+
   try {
-    [apoteker, pelangganByUsername, pelangganByEmail] = await Promise.all([
-      prisma.apoteker.findUnique({ where: { username: username.trim() }, select: { id_pengguna: true, password_hash: true, status: true } }),
-      prisma.pelanggan.findUnique({ where: { username: username.trim() }, select: { id_pengguna: true, password_hash: true, status: true } }),
-      username.trim().includes("@")
-        ? prisma.pelanggan.findFirst({ where: { email: { equals: username.trim(), mode: "insensitive" } }, select: { id_pengguna: true, password_hash: true, status: true } })
-        : Promise.resolve(null),
+    const select = { id_pengguna: true, password_hash: true, status: true } as const;
+    [owner, admin, apoteker, asisten, pelanggan] = await Promise.all([
+      prisma.owner.findFirst({
+        where: isEmail ? { email: { equals: identifier, mode: "insensitive" } } : { username: { equals: identifier, mode: "insensitive" } },
+        select,
+      }),
+      prisma.admin.findFirst({
+        where: isEmail ? { email: { equals: identifier, mode: "insensitive" } } : { username: { equals: identifier, mode: "insensitive" } },
+        select,
+      }),
+      prisma.apoteker.findFirst({
+        where: isEmail ? { email: { equals: identifier, mode: "insensitive" } } : { username: { equals: identifier, mode: "insensitive" } },
+        select,
+      }),
+      prisma.asisten_apoteker.findFirst({
+        where: isEmail ? { email: { equals: identifier, mode: "insensitive" } } : { username: { equals: identifier, mode: "insensitive" } },
+        select,
+      }),
+      prisma.pelanggan.findFirst({
+        where: isEmail ? { email: { equals: identifier, mode: "insensitive" } } : { username: { equals: identifier, mode: "insensitive" } },
+        select,
+      }),
     ]);
   } catch {
     return { error: "Login sementara tidak dapat terhubung ke database." };
   }
 
-  // The identifier must resolve to exactly one account; customer email is an alternate identifier.
-  if ((apoteker && (pelangganByUsername || pelangganByEmail)) || (pelangganByUsername && pelangganByEmail && pelangganByUsername.id_pengguna !== pelangganByEmail.id_pengguna)) {
+  const candidates: { role: UserRole; user: AccountRow }[] = [
+    ...(owner ? [{ role: "owner" as const, user: owner }] : []),
+    ...(admin ? [{ role: "admin" as const, user: admin }] : []),
+    ...(apoteker ? [{ role: "apoteker" as const, user: apoteker }] : []),
+    ...(asisten ? [{ role: "asisten_apoteker" as const, user: asisten }] : []),
+    ...(pelanggan ? [{ role: "pelanggan" as const, user: pelanggan }] : []),
+  ];
+
+  if (candidates.length === 0) {
     return { error: "Username atau password salah." };
   }
-  const pelanggan = pelangganByUsername ?? pelangganByEmail;
-  if (!apoteker && !pelanggan) return { error: "Username atau password salah." };
-  const user = apoteker ?? pelanggan!;
-  const isBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(user.password_hash);
-  const passwordMatches = isBcryptHash && await compare(password, user.password_hash);
-  if (user.status !== "Aktif" || !passwordMatches) return { error: "Username atau password salah." };
 
-  const role = apoteker ? "apoteker" : "pelanggan";
-  await createSession(user.id_pengguna, role);
-  redirect(role === "apoteker" ? "/" : "/pelanggan");
+  for (const candidate of candidates) {
+    const isBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(candidate.user.password_hash);
+    const passwordMatches = isBcryptHash && (await compare(password, candidate.user.password_hash));
+    if (candidate.user.status === "Aktif" && passwordMatches) {
+      await createSession(candidate.user.id_pengguna, candidate.role);
+      redirect(candidate.role === "pelanggan" ? "/pelanggan" : "/");
+    }
+  }
+
+  return { error: "Username atau password salah." };
 }
 
 export async function logout() {

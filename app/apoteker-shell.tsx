@@ -1,14 +1,33 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { logout } from "@/app/login/actions";
+import type { StaffRole } from "@/lib/auth";
 
-const items = [
-  ["/", "Beranda", "home"],
-  ["/apoteker/resep", "Validasi Resep", "prescription"],
-  ["/apoteker/obat", "Data Obat", "medicine"],
-  ["/apoteker/laporan", "Laporan", "report"],
-  ["/apoteker/stok", "Stok Obat", "stock"],
-] as const;
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  roles: StaffRole[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/", label: "Beranda", icon: "home", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/resep", label: "Validasi Resep", icon: "prescription", roles: ["apoteker"] },
+  { href: "/apoteker/permintaan", label: "Permintaan Obat", icon: "requests", roles: ["admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/obat", label: "Data Obat", icon: "medicine", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/stok", label: "Stok Obat", icon: "stock", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/transaksi", label: "Kasir POS", icon: "sales", roles: ["admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/riwayat-transaksi", label: "Riwayat Transaksi", icon: "history", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/laporan", label: "Laporan", icon: "report", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+  { href: "/apoteker/akun", label: "Akun Saya", icon: "account", roles: ["owner", "admin", "apoteker", "asisten_apoteker"] },
+];
+
+const ROLE_LABELS: Record<StaffRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  apoteker: "Apoteker",
+  asisten_apoteker: "Asisten Apoteker",
+};
 
 function Icon({ name }: { name: string }) {
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
@@ -24,19 +43,74 @@ function Icon({ name }: { name: string }) {
   return <svg {...common}><path d="M10 17H5V5h12v5M9 12l-5 5 5 5M4 17h11a5 5 0 0 0 5-5v-1" /></svg>;
 }
 
-export function ApotekerShell({ children, active, name }: { children: ReactNode; active: string; name: string }) {
-  return <main className="pharmacist-app">
-    <header className="pharmacist-header">
-      <Link href="/" className="pharmacist-brand"><span className="pharmacist-brand-mark"><span aria-hidden="true">⌁</span></span><span><b>APOTEK SRI UTAMA</b><small>Sehat Bersama, Setiap Saat</small></span></Link>
-      <div className="pharmacist-user"><span className="pharmacist-avatar">{name.slice(0, 1).toUpperCase()}</span><span>{name}<small>Apoteker</small></span></div>
-    </header>
-    <div className="pharmacist-layout">
-      <aside className="pharmacist-sidebar"><nav aria-label="Navigasi Apoteker">{items.map(([href, label, icon]) => <Link key={href} href={href} className={`pharmacist-nav-link${active === href ? " active" : ""}`} aria-current={active === href ? "page" : undefined}><Icon name={icon}/><span>{label}</span></Link>)}</nav><form action={logout} className="pharmacist-side-logout"><button type="submit"><Icon name="logout"/><span>Keluar</span></button></form></aside>
-      <section className="pharmacist-content">{children}</section>
-    </div>
-  </main>;
+export function ApotekerShell({
+  children,
+  active,
+  name,
+  role = "apoteker",
+}: {
+  children: ReactNode;
+  active: string;
+  name: string;
+  role?: StaffRole;
+}) {
+  const visibleItems = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const roleLabel = ROLE_LABELS[role] ?? "Apoteker";
+
+  return (
+    <main className="pharmacist-app">
+      <header className="pharmacist-header">
+        <Link href="/" className="pharmacist-brand">
+          <span className="pharmacist-brand-mark">
+            <span aria-hidden="true">⌁</span>
+          </span>
+          <span>
+            <b>APOTEK SRI UTAMA</b>
+            <small>Sehat Bersama, Setiap Saat</small>
+          </span>
+        </Link>
+        <div className="pharmacist-user">
+          <span className="pharmacist-avatar">{name.slice(0, 1).toUpperCase()}</span>
+          <span>
+            {name}
+            <small>{roleLabel}</small>
+          </span>
+        </div>
+      </header>
+      <div className="pharmacist-layout">
+        <aside className="pharmacist-sidebar">
+          <nav aria-label={`Navigasi ${roleLabel}`}>
+            {visibleItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`pharmacist-nav-link${active === item.href ? " active" : ""}`}
+                aria-current={active === item.href ? "page" : undefined}
+              >
+                <Icon name={item.icon} />
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+          <form action={logout} className="pharmacist-side-logout">
+            <button type="submit">
+              <Icon name="logout" />
+              <span>Keluar</span>
+            </button>
+          </form>
+        </aside>
+        <section className="pharmacist-content">{children}</section>
+      </div>
+    </main>
+  );
 }
 
 export function PageHeading({ eyebrow = "SISTEM APOTEK", title, description }: { eyebrow?: string; title: string; description?: string }) {
-  return <div className="pharmacist-page-heading"><p>{eyebrow}</p><h1>{title}</h1>{description && <span>{description}</span>}</div>;
+  return (
+    <div className="pharmacist-page-heading">
+      <p>{eyebrow}</p>
+      <h1>{title}</h1>
+      {description && <span>{description}</span>}
+    </div>
+  );
 }

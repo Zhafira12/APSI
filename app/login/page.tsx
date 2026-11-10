@@ -1,8 +1,8 @@
-export const instant = false;
-
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import LoginContent from "./LoginContent";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Login | Apotek Sri Utama",

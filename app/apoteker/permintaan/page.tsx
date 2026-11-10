@@ -15,7 +15,8 @@ export default function PermintaanPage(props: Props) {
 }
 
 async function PermintaanContent({ searchParams }: Props) {
-  const { apoteker } = await requireApoteker();
+  const { apoteker } = await requireApoteker(["admin", "apoteker", "asisten_apoteker"]);
+  const canInspectRecipe = apoteker.role === "apoteker";
   const params = await searchParams;
   const statuses = ["Menunggu", "Diproses", "Ditolak", "Selesai"];
   const status = statuses.includes(params.status ?? "") ? params.status : undefined;
@@ -51,7 +52,7 @@ async function PermintaanContent({ searchParams }: Props) {
   }).filter((id) => Number.isSafeInteger(id) && id > 0);
   const recipes = patients.length && linkedRecipeIds.length ? await prisma.resep_obat.findMany({ where: { id_resep: { in: linkedRecipeIds }, pelanggan_id_pengguna: { in: patients }, detail_resep_obat: { some: { id_obat: { in: medicines } } } }, include: { detail_resep_obat: { select: { id_obat: true } } } }) : [];
 
-  return <ApotekerShell active="/apoteker/permintaan" name={apoteker.nama_pengguna}>
+  return <ApotekerShell active="/apoteker/permintaan" name={apoteker.nama_pengguna} role={apoteker.role}>
     <PageHeading eyebrow="LAYANAN PELANGGAN" title="Permintaan Obat" description="Tinjau obat, jumlah, ketersediaan stok, dan resep pelanggan."/>
     {params.success && <p className="pharmacist-notice success" role="status">{params.success}</p>}{params.error && <p className="pharmacist-notice error" role="alert">{params.error}</p>}
     <section className="pharmacist-panel"><div className="pharmacist-panel-heading"><div><p>{requests.length} PERMINTAAN</p><h2>Daftar Permintaan</h2></div></div>
@@ -70,7 +71,7 @@ async function PermintaanContent({ searchParams }: Props) {
               : undefined;
             const hasRecipe = Boolean(linkedRecipe && ["Disetujui", "Valid"].includes(linkedRecipe.status_validasi ?? ""));
             const recipeStatus = linkedRecipe?.status_validasi?.toLowerCase();
-            return <div className="pharmacist-request-line" key={detail.id_detail_permintaan_obat}><b>{detail.obat.nama_obat}</b><span>{quantity} {detail.obat.satuan ?? "unit"}</span><span>{money(detail.obat.harga_jual.toString())} / satuan</span><span className={stock >= quantity ? "text-green" : "text-danger"}>Stok {stock >= quantity ? "tersedia" : "tidak cukup"} ({stock})</span><span className={needsRecipe ? (hasRecipe ? "text-green" : "text-danger") : "text-muted"}>{needsRecipe ? (hasRecipe ? "Resep valid" : recipeStatus === "menunggu" ? <Link href={`/apoteker/resep/${linkedRecipeId}`}>Resep menunggu validasi</Link> : recipeStatus === "ditolak" ? "Resep ditolak" : "Resep belum valid") : "Tidak perlu resep"}</span></div>;
+            return <div className="pharmacist-request-line" key={detail.id_detail_permintaan_obat}><b>{detail.obat.nama_obat}</b><span>{quantity} {detail.obat.satuan ?? "unit"}</span><span>{money(detail.obat.harga_jual.toString())} / satuan</span><span className={stock >= quantity ? "text-green" : "text-danger"}>Stok {stock >= quantity ? "tersedia" : "tidak cukup"} ({stock})</span><span className={needsRecipe ? (hasRecipe ? "text-green" : "text-danger") : "text-muted"}>{needsRecipe ? (hasRecipe ? "Resep valid" : recipeStatus === "menunggu" ? (canInspectRecipe ? <Link href={`/apoteker/resep/${linkedRecipeId}`}>Resep menunggu validasi</Link> : "Resep menunggu validasi Apoteker") : recipeStatus === "ditolak" ? "Resep ditolak" : "Resep belum valid") : "Tidak perlu resep"}</span></div>;
           })}</div>
           {request.keterangan && <p className="pharmacist-request-note"><b>Catatan:</b> {request.keterangan}</p>}
           {pending && <form action={reviewRequest} className="request-review-form"><input type="hidden" name="id_permintaan" value={request.id_permintaan}/><label>Alasan penolakan (wajib jika ditolak)<input name="alasan" maxLength={160} placeholder="Alasan penolakan"/></label><button className="pharmacist-button primary" name="keputusan" value="Diproses">Terima Permintaan</button><button className="pharmacist-button danger" name="keputusan" value="Ditolak">Tolak</button></form>}

@@ -26,7 +26,7 @@ async function RiwayatTransaksiContent({ searchParams }: Props) {
     orderBy: [{ tanggal: "desc" }, { id_transaksi: "desc" }],
     include: { detail_transaksi: true },
   });
-  return <ApotekerShell active="/apoteker/riwayat-transaksi" name={apoteker.nama_pengguna}>
+  return <ApotekerShell active="/apoteker/riwayat-transaksi" name={apoteker.nama_pengguna} role={apoteker.role}>
     <PageHeading eyebrow="ARSIP PENJUALAN" title="Riwayat Transaksi" description="Cari transaksi dan buka bukti penjualan."/>
     {params.success && <p className="pharmacist-notice success" role="status">{params.success}</p>}
     <section className="pharmacist-panel"><div className="pharmacist-panel-heading"><div><p>{transactions.length} TRANSAKSI</p><h2>Daftar Penjualan</h2></div></div>

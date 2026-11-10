@@ -3,16 +3,27 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
-export type UserRole = "apoteker" | "pelanggan";
-type Session = { userId: number; role: UserRole; expiresAt: number };
+export type UserRole = "owner" | "admin" | "apoteker" | "asisten_apoteker" | "pelanggan";
+export type StaffRole = Exclude<UserRole, "pelanggan">;
+export type Session = { userId: number; role: UserRole; expiresAt: number };
 
+const VALID_ROLES = new Set<UserRole>(["owner", "admin", "apoteker", "asisten_apoteker", "pelanggan"]);
 const COOKIE_NAME = "apotek_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 
+function getSecret(): string {
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (secret && secret.length >= 16) return secret;
+  if (process.env.DATABASE_URL) {
+    return createHmac("sha256", "apotek-sri-utama-kdf-v1")
+      .update(process.env.DATABASE_URL)
+      .digest("hex");
+  }
+  throw new Error("AUTH_SECRET (minimal 16 karakter) wajib dikonfigurasi pada environment.");
+}
+
 function sign(value: string) {
-  const secret = process.env.AUTH_SECRET ?? process.env.DATABASE_URL;
-  if (!secret) throw new Error("AUTH_SECRET or DATABASE_URL is required for login sessions.");
-  return createHmac("sha256", secret).update(value).digest("base64url");
+  return createHmac("sha256", getSecret()).update(value).digest("base64url");
 }
 
 export async function createSession(userId: number, role: UserRole) {
@@ -39,9 +50,16 @@ export async function getSession(): Promise<Session | null> {
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Partial<Session>;
-    if (!Number.isInteger(session.userId) || typeof session.userId !== "number" ||
-      (session.role !== "apoteker" && session.role !== "pelanggan") ||
-      typeof session.expiresAt !== "number" || session.expiresAt <= Math.floor(Date.now() / 1000)) return null;
+    if (
+      !Number.isInteger(session.userId) ||
+      typeof session.userId !== "number" ||
+      !session.role ||
+      !VALID_ROLES.has(session.role) ||
+      typeof session.expiresAt !== "number" ||
+      session.expiresAt <= Math.floor(Date.now() / 1000)
+    ) {
+      return null;
+    }
     return session as Session;
   } catch {
     return null;

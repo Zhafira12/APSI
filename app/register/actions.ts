@@ -26,25 +26,30 @@ export async function registerCustomer(_previousState: RegisterState, formData: 
   try {
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`LOCK TABLE "pelanggan" IN EXCLUSIVE MODE`;
-      const [customerUsername, customerEmail, pharmacistUsername, lastCustomer] = await Promise.all([
+      const [customerUsername, customerEmail, pharmacistUsername, ownerUsername, adminUsername, assistantUsername, lastCustomer] = await Promise.all([
         tx.pelanggan.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id_pengguna: true } }),
         tx.pelanggan.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id_pengguna: true } }),
         tx.apoteker.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id_pengguna: true } }),
+        tx.owner.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id_pengguna: true } }),
+        tx.admin.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id_pengguna: true } }),
+        tx.asisten_apoteker.findFirst({ where: { username: { equals: username, mode: "insensitive" } }, select: { id_pengguna: true } }),
         tx.pelanggan.aggregate({ _max: { id_pengguna: true } }),
       ]);
-      if (customerUsername || pharmacistUsername) throw new Error("USERNAME_TAKEN");
+      if (customerUsername || pharmacistUsername || ownerUsername || adminUsername || assistantUsername) throw new Error("USERNAME_TAKEN");
       if (customerEmail) throw new Error("EMAIL_TAKEN");
       const id = (lastCustomer._max.id_pengguna ?? 0) + 1;
       if (!Number.isSafeInteger(id) || id < 1 || id > 2_147_483_647) throw new Error("ID_EXHAUSTED");
-      await tx.pelanggan.create({ data: {
-        id_pengguna: id,
-        nama_pengguna: name,
-        username,
-        email,
-        no_hp: phone,
-        password_hash: passwordHash,
-        status: "Aktif",
-      } });
+      await tx.pelanggan.create({
+        data: {
+          id_pengguna: id,
+          nama_pengguna: name,
+          username,
+          email,
+          no_hp: phone,
+          password_hash: passwordHash,
+          status: "Aktif",
+        },
+      });
     });
   } catch (error) {
     if (error instanceof Error && error.message === "USERNAME_TAKEN") return { error: "Username sudah digunakan. Silakan pilih username lain." };
