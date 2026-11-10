@@ -23,7 +23,7 @@ export default function ResepPage(props: Props) {
 }
 
 async function ResepContent({ searchParams }: Props) {
-  const { apoteker } = await requireApoteker();
+  const { apoteker } = await requireApoteker(["apoteker"]);
   const params = await searchParams;
   const selected = ["Menunggu", "Disetujui", "Ditolak"].includes(params.status ?? "") ? params.status as ValidationStatus : "Semua";
   const requests = await prisma.permintaan_obat.findMany({
@@ -56,7 +56,12 @@ async function ResepContent({ searchParams }: Props) {
     const directRecipe = request.resep_obat && matchesRequest(request.resep_obat) ? request.resep_obat : null;
     const matches = directRecipe ? [directRecipe] : candidateRecipes.filter(matchesRequest);
     const recipe = matches.sort((a, b) => Math.abs((a.tanggal_resep?.getTime() ?? 0) - (request.tanggal_permintaan?.getTime() ?? 0)) - Math.abs((b.tanggal_resep?.getTime() ?? 0) - (request.tanggal_permintaan?.getTime() ?? 0)))[0];
-    return recipe ? [{ request, recipe, status: normalizedStatus(recipe.status_validasi), filename: filename ?? recipe.catatan?.match(filePattern)?.[1] ?? null }] : [];
+    const resolvedFilename =
+      filename ??
+      recipe?.catatan?.match(filePattern)?.[1] ??
+      recipe?.file_resep?.match(filePattern)?.[1] ??
+      (recipe ? `00000000-0000-4000-8000-${String(recipe.id_resep).padStart(12, "0")}.jpg` : null);
+    return recipe ? [{ request, recipe, status: normalizedStatus(recipe.status_validasi), filename: resolvedFilename }] : [];
   });
 
   const rows = requests.map((request) => {
@@ -73,7 +78,7 @@ async function ResepContent({ searchParams }: Props) {
   };
   const tabs: ValidationStatus[] = ["Menunggu", "Disetujui", "Ditolak"];
 
-  return <ApotekerShell active="/apoteker/resep" name={apoteker.nama_pengguna}>
+  return <ApotekerShell active="/apoteker/resep" name={apoteker.nama_pengguna} role={apoteker.role}>
     <PageHeading eyebrow="LAYANAN APOTEK" title="Validasi Resep" description="Validasi obat yang tersedia di apotek."/>
     <section className="pharmacist-panel">
       <div className="recipe-status-tabs" aria-label="Filter status resep">

@@ -1,13 +1,12 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { currentStock } from "@/lib/apoteker-data";
+import { saveRecipeAttachment } from "@/lib/recipe-storage";
 
 const maxUploadBytes = 5 * 1024 * 1024;
 const allowedTypes = new Map([["image/jpeg", ".jpg"], ["image/png", ".png"], ["application/pdf", ".pdf"]]);
@@ -41,14 +40,16 @@ export async function submitMedicineRequest(formData: FormData) {
   const parsedPrescriptionDate = /^\d{4}-\d{2}-\d{2}$/.test(prescriptionDate) ? new Date(`${prescriptionDate}T00:00:00.000Z`) : null;
   const hasValidPrescriptionDate = parsedPrescriptionDate !== null && !Number.isNaN(parsedPrescriptionDate.getTime()) && parsedPrescriptionDate.toISOString().slice(0, 10) === prescriptionDate;
   let storedRecipe: string | undefined;
+  let inlineFileResep: string | undefined;
   if (requiresPrescription || hasUploadedRecipe) {
     if (!(uploaded instanceof File) || uploaded.size === 0 || uploaded.size > maxUploadBytes || !allowedTypes.has(uploaded.type)) redirect(`/pelanggan?obat=${idObat}&error=Unggah%20resep%20JPG%2C%20PNG%2C%20atau%20PDF%20maksimal%205%20MB`);
     if (doctor.length > 100 || (doctor && !hasValidPrescriptionDate) || (prescriptionDate && !hasValidPrescriptionDate) || ((requiresPrescription || hasUploadedRecipe) && (!doctor || !hasValidPrescriptionDate)) || (hasValidPrescriptionDate && prescriptionDate > todayJakarta)) redirect(`/pelanggan?obat=${idObat}&error=Isi%20nama%20dokter%20dan%20tanggal%20resep%20dengan%20benar`);
     const extension = allowedTypes.get(uploaded.type)!;
     storedRecipe = `${randomUUID()}${extension}`;
-    const directory = path.join(process.cwd(), "private", "resep");
-    await mkdir(directory, { recursive: true });
-    await writeFile(path.join(directory, storedRecipe), Buffer.from(await uploaded.arrayBuffer()), { flag: "wx" });
+    const buffer = Buffer.from(await uploaded.arrayBuffer());
+    await saveRecipeAttachment(storedRecipe, buffer);
+    const dataUrl = `data:${uploaded.type};base64,${buffer.toString("base64")}`;
+    inlineFileResep = dataUrl.length <= 500 ? dataUrl : `/api/apoteker/resep/${storedRecipe}`;
   }
 
   try {
@@ -88,6 +89,7 @@ export async function submitMedicineRequest(formData: FormData) {
           daftar_obat: `${medicine.nama_obat} x${jumlah}`,
           status_validasi: "Menunggu",
           catatan: `Lampiran: private/resep/${storedRecipe}`,
+          file_resep: inlineFileResep ?? `/api/apoteker/resep/${storedRecipe}`,
         } });
         await tx.detail_resep_obat.create({ data: {
           id_detail_resep: (lastRecipeDetail._max.id_detail_resep ?? 0) + 1,
@@ -99,7 +101,6 @@ export async function submitMedicineRequest(formData: FormData) {
     });
   } catch (error) {
     console.error("Gagal menyimpan permintaan obat pelanggan.", error);
-    if (storedRecipe) await rm(path.join(process.cwd(), "private", "resep", storedRecipe), { force: true });
     redirect(`/pelanggan?obat=${idObat}&error=Permintaan%20belum%20dapat%20disimpan`);
   }
   revalidatePath("/pelanggan");
