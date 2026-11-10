@@ -106,14 +106,14 @@ export async function submitMedicineRequest(formData: FormData) {
   revalidatePath("/pelanggan");
   revalidatePath("/apoteker/permintaan");
   revalidatePath("/apoteker/resep");
-  redirect(`/pelanggan?tab=Permintaan%20Obat&success=${storedRecipe ? "prescription" : "request"}`);
+  redirect(`/pelanggan?tab=Resep%20Saya&success=${storedRecipe ? "prescription" : "request"}`);
 }
 
 export async function continueApprovedRequest(formData: FormData) {
   const session = await getSession();
   if (!session || session.role !== "pelanggan") redirect("/login");
   const idRequest = Number(formData.get("id_permintaan"));
-  if (!Number.isSafeInteger(idRequest) || idRequest < 1) redirect("/pelanggan?tab=Permintaan%20Obat&error=Permintaan%20tidak%20valid");
+  if (!Number.isSafeInteger(idRequest) || idRequest < 1) redirect("/pelanggan?tab=Resep%20Saya&error=Permintaan%20tidak%20valid");
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -201,7 +201,7 @@ export async function continueApprovedRequest(formData: FormData) {
       await tx.permintaan_obat.update({ where: { id_permintaan: idRequest }, data: { status_permintaan: "Selesai" } });
     });
   } catch (error) {
-    redirect(`/pelanggan?tab=Permintaan%20Obat&error=${encodeURIComponent(error instanceof Error ? error.message : "Transaksi belum dapat dibuat")}`);
+    redirect(`/pelanggan?tab=Resep%20Saya&error=${encodeURIComponent(error instanceof Error ? error.message : "Transaksi belum dapat dibuat")}`);
   }
-  redirect(`/pelanggan?tab=Permintaan%20Obat&purchase=success`);
+  redirect(`/pelanggan?tab=Resep%20Saya&purchase=success`);
 }

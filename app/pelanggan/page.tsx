@@ -1,4 +1,3 @@
-import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,8 +7,9 @@ import { logout } from "@/app/login/actions";
 import { continueApprovedRequest, submitMedicineRequest } from "./actions";
 import { medicineImage } from "@/lib/medicine-images";
 import { currentStock } from "@/lib/apoteker-data";
+import { SIDEBAR_MENU_BY_ROLE } from "@/lib/navigation";
+import { SidebarIcon } from "@/app/apoteker-shell";
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
 export const metadata: Metadata = { title: "Beranda Pelanggan | Apotek Sri Utama", description: "Cari dan ajukan permintaan obat di Apotek Sri Utama." };
 
@@ -19,7 +19,14 @@ type PageProps = { searchParams: Promise<{ q?: string; golongan?: string; obat?:
 type CustomerRequest = { id_permintaan: number; tanggal_permintaan: Date | null; status_permintaan: string | null; keterangan: string | null; resep_obat: CustomerPrescription | null; detail_permintaan_obat: { id_obat: number; jumlah: string | null; obat: { nama_obat: string; golongan_obat: { nama_golongan: string } | null; stok_obat: { id_stok: number; jumlah_stok: number; tanggal_update: Date | null; keterangan: string | null }[] } }[] };
 type CustomerPrescription = { id_resep: number; status_validasi: string | null; catatan: string | null; detail_resep_obat: { id_obat: number }[] };
 const money = (value: number | string) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
-const nav = ["Beranda", "Daftar Obat", "Permintaan Obat", "Riwayat Transaksi", "Profil"] as const;
+
+function normalizeCustomerTab(rawTab?: string) {
+  if (!rawTab || rawTab === "Beranda") return "Beranda";
+  if (rawTab === "Cari Obat" || rawTab === "Daftar Obat") return "Cari Obat";
+  if (rawTab === "Resep Saya" || rawTab === "Permintaan Obat") return "Resep Saya";
+  if (rawTab === "Riwayat Transaksi") return "Riwayat Transaksi";
+  return "Beranda";
+}
 
 export default async function BerandaPelangganPage({ searchParams }: PageProps) {
   return <CustomerHome searchParams={searchParams}/>;
@@ -42,7 +49,8 @@ async function CustomerHome({ searchParams }: PageProps) {
     prisma.resep_obat.findMany({ where: { pelanggan_id_pengguna: session.userId }, orderBy: [{ tanggal_resep: "desc" }, { id_resep: "desc" }], select: { id_resep: true, status_validasi: true, catatan: true, detail_resep_obat: { select: { id_obat: true } } } }),
   ]);
   if (!account || account.status !== "Aktif") redirect("/login");
-  const activeTab = params.tab ?? "Beranda";
+  const activeTab = normalizeCustomerTab(params.tab);
+  const menuItems = SIDEBAR_MENU_BY_ROLE.pelanggan;
   const selected = params.obat ? medicines.find((item) => item.id_obat === Number(params.obat)) : undefined;
   const selectedStock = selected ? currentStock(selected.stok_obat) : 0;
   // Query customer's transactions both via direct FK and customer name so all past transactions appear
@@ -58,21 +66,21 @@ async function CustomerHome({ searchParams }: PageProps) {
   });
 
   return <main className="customer-app">
-    <header className="customer-header"><Link className="customer-brand" href="/pelanggan"><span className="customer-brand-mark" aria-hidden="true">✚</span><span><b>APOTEK SRI UTAMA</b><small>Sehat Bersama, Setiap Saat</small></span></Link><div className="customer-header-right"><span className="customer-avatar">{account.nama_pengguna.slice(0,1).toUpperCase()}</span><span className="customer-header-name">{account.nama_pengguna}</span><form action={logout}><button className="customer-logout" type="submit">Keluar</button></form></div></header>
+    <header className="customer-header"><Link className="customer-brand" href="/pelanggan"><span className="customer-brand-mark" aria-hidden="true">✚</span><span><b>APOTEK SRI UTAMA</b><small>Sehat Bersama, Setiap Saat</small></span></Link><div className="customer-header-right"><span className="customer-avatar">{account.nama_pengguna.slice(0,1).toUpperCase()}</span><span className="customer-header-name">{account.nama_pengguna}</span></div></header>
     <div className="customer-layout">
-      <aside className="customer-sidebar"><p className="customer-nav-caption">MENU PELANGGAN</p><nav aria-label="Navigasi pelanggan">{nav.map((item, i) => <Link key={item} className={`customer-nav-link${activeTab === item ? " active" : ""}`} href={item === "Beranda" ? "/pelanggan" : `/pelanggan?tab=${encodeURIComponent(item)}`}><span aria-hidden="true">{["⌂", "▦", "＋", "▤", "○"][i]}</span>{item}</Link>)}</nav><div className="customer-side-note"><span>Butuh bantuan?</span><b>Kami siap membantu kebutuhan kesehatan Anda.</b></div></aside>
+      <aside className="customer-sidebar"><p className="customer-nav-caption">MENU PELANGGAN</p><nav aria-label="Navigasi pelanggan">{menuItems.map((item) => <Link key={item.href} className={`customer-nav-link${activeTab === item.tab ? " active" : ""}`} aria-current={activeTab === item.tab ? "page" : undefined} href={item.href}><SidebarIcon name={item.icon}/><span>{item.label}</span></Link>)}</nav><form action={logout} className="customer-side-logout"><button type="submit"><SidebarIcon name="logout"/><span>Keluar</span></button></form></aside>
       <section className="customer-content">
         {params.error && <p className="customer-alert" role="alert">{params.error}</p>}
         {params.success && <RequestSuccessDialog withPrescription={params.success === "prescription"}/>}
         {params.purchase === "success" && <PurchaseSuccessDialog/>}
-        {activeTab === "Beranda" || activeTab === "Daftar Obat" ? <>
-          <div className="customer-welcome"><div><p className="customer-kicker">APOTEK SRI UTAMA</p><h1>{activeTab === "Beranda" ? <>Selamat datang, {account.nama_pengguna}!</> : "Daftar Obat"}</h1><p>Temukan obat dan kebutuhan kesehatan Anda dengan mudah.</p></div><span className="welcome-art" aria-hidden="true">✚</span></div>
+        {activeTab === "Beranda" || activeTab === "Cari Obat" ? <>
+          <div className="customer-welcome"><div><p className="customer-kicker">APOTEK SRI UTAMA</p><h1>{activeTab === "Beranda" ? <>Selamat datang, {account.nama_pengguna}!</> : "Cari Obat"}</h1><p>Temukan obat dan kebutuhan kesehatan Anda dengan mudah.</p></div><span className="welcome-art" aria-hidden="true">✚</span></div>
           <section className="catalog-section" id="daftar-obat"><div className="catalog-title"><div><p className="customer-kicker">KATALOG APOTEK</p><h2>{activeTab === "Beranda" ? "Cari obat yang Anda butuhkan" : "Semua Obat"}</h2></div><span className="catalog-count">{medicines.length} produk</span></div>
             <form className="medicine-search" action="/pelanggan#daftar-obat"><span aria-hidden="true">⌕</span><input type="search" name="q" defaultValue={params.q} placeholder="Cari nama obat..." aria-label="Cari nama obat"/>{params.golongan && <input type="hidden" name="golongan" value={params.golongan}/>}<button type="submit">Cari Obat</button></form>
             <div className="category-list"><Link className={!params.golongan ? "category-chip selected" : "category-chip"} href={params.q ? `/pelanggan?q=${encodeURIComponent(params.q)}#daftar-obat` : "/pelanggan#daftar-obat"}>Semua kategori</Link>{groups.map((group) => <Link className={params.golongan === String(group.id_golongan) ? "category-chip selected" : "category-chip"} href={`/pelanggan?${new URLSearchParams({ ...(params.q ? { q: params.q } : {}), golongan: String(group.id_golongan) })}#daftar-obat`} key={group.id_golongan}>{group.nama_golongan}</Link>)}</div>
             {medicines.length ? <div className="medicine-grid">{medicines.map((item) => { const stock = currentStock(item.stok_obat); const needsPrescription = /resep|antibiotik|keras/i.test(item.golongan_obat?.nama_golongan ?? ""); const image = medicineImage(item.id_obat); return <article className="medicine-card" key={item.id_obat}><Link className="medicine-visual" href={`/pelanggan?obat=${item.id_obat}`} aria-label={`Lihat ${item.nama_obat}`}>{image ? <Image src={image} width={240} height={180} alt={item.nama_obat}/> : <span className="medicine-cross" aria-hidden="true">✚</span>}{needsPrescription && <span className="prescription-label">Perlu resep</span>}</Link><div className="medicine-info"><span className="medicine-category">{item.golongan_obat?.nama_golongan ?? "Kategori lain"}</span><h3><Link href={`/pelanggan?obat=${item.id_obat}`}>{item.nama_obat}</Link></h3><p className="medicine-unit">Satuan: {item.satuan ?? "—"}</p><div className="medicine-meta"><b>{money(item.harga_jual.toString())}</b><span className={stock > 0 ? "stock-in" : "stock-out"}>{stock > 0 ? `Stok ${stock}` : "Stok habis"}</span></div><Link className="medicine-action" href={`/pelanggan?obat=${item.id_obat}`}>Lihat detail <span aria-hidden="true">→</span></Link></div></article>; })}</div> : <div className="catalog-empty">Obat tidak ditemukan. Coba kata kunci atau kategori lain.</div>}
           </section>
-        </> : activeTab === "Permintaan Obat" ? <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Permintaan Obat</h1><RequestList requests={requests} prescriptions={prescriptions}/></section> : activeTab === "Riwayat Transaksi" ? <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Riwayat Transaksi</h1>{transactions.length ? transactions.map((tx) => <article className="history-row" key={tx.id_transaksi}><b>Transaksi #{tx.id_transaksi}</b><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(tx.tanggal)}</span><span>{money(tx.total.toString())}</span><span>{tx.status ?? "Diproses"}</span></article>) : <p className="catalog-empty">Belum ada transaksi pada akun Anda.</p>}</section> : <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Profil</h1><div className="profile-card"><b>{account.nama_pengguna}</b><span>{account.email}</span><span>{account.no_hp ?? "Nomor telepon belum tersedia"}</span><span>{account.alamat ?? "Alamat belum tersedia"}</span></div></section>}
+        </> : activeTab === "Resep Saya" ? <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Resep Saya</h1><RequestList requests={requests} prescriptions={prescriptions}/></section> : <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Riwayat Transaksi</h1>{transactions.length ? transactions.map((tx) => <article className="history-row" key={tx.id_transaksi}><b>Transaksi #{tx.id_transaksi}</b><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(tx.tanggal)}</span><span>{money(tx.total.toString())}</span><span>{tx.status ?? "Diproses"}</span></article>) : <p className="catalog-empty">Belum ada transaksi pada akun Anda.</p>}</section>}
         <footer className="customer-footer">© Apotek Sri Utama · Sehat Bersama, Setiap Saat</footer>
       </section>
     </div>
@@ -86,9 +94,9 @@ function RequestSuccessDialog({ withPrescription }: { withPrescription: boolean 
       <span className="request-success-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="m13 25 7 7 16-17" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
       <p className="request-success-eyebrow">APOTEK SRI UTAMA</p>
       <h2 id="request-success-title">Permintaan berhasil diterima</h2>
-      <p className="request-success-copy">{withPrescription ? "Permintaan obat dan lampiran resep sudah tersimpan. Apoteker akan memeriksa resep Anda." : "Permintaan obat Anda sudah tersimpan dan dapat dipantau pada menu Permintaan Obat."}</p>
+      <p className="request-success-copy">{withPrescription ? "Permintaan obat dan lampiran resep sudah tersimpan. Apoteker akan memeriksa resep Anda." : "Permintaan obat Anda sudah tersimpan dan dapat dipantau pada menu Resep Saya."}</p>
       {withPrescription && <span className="request-success-status">Status resep: Menunggu validasi Apoteker</span>}
-      <Link className="request-success-button" href="/pelanggan?tab=Permintaan%20Obat">Lihat permintaan saya</Link>
+      <Link className="request-success-button" href="/pelanggan?tab=Resep%20Saya">Lihat resep saya</Link>
       <Link className="request-success-close" href="/pelanggan" aria-label="Tutup konfirmasi">Kembali ke beranda</Link>
     </section>
   </div>;
@@ -100,12 +108,12 @@ function PurchaseSuccessDialog() {
     <p className="request-success-eyebrow">PEMBELIAN APOTEK</p><h2 id="purchase-success-title">Transaksi berhasil</h2>
     <p className="request-success-copy">Pembelian tersimpan. Stok obat telah diperbarui dan transaksi tercatat pada akun Anda.</p>
     <Link className="request-success-button" href="/pelanggan?tab=Riwayat%20Transaksi">Lihat riwayat transaksi</Link>
-    <Link className="request-success-close" href="/pelanggan?tab=Permintaan%20Obat">Kembali ke permintaan</Link>
+    <Link className="request-success-close" href="/pelanggan?tab=Resep%20Saya">Kembali ke resep saya</Link>
   </section></div>;
 }
 
 function RequestList({ requests, prescriptions }: { requests: CustomerRequest[]; prescriptions: CustomerPrescription[] }) {
-  if (!requests.length) return <p className="catalog-empty">Belum ada permintaan obat.</p>;
+  if (!requests.length) return <p className="catalog-empty">Belum ada pengajuan resep atau permintaan obat.</p>;
   return <div className="request-list">{requests.map((request) => {
     const linkedRecipeId = Number(request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1]);
     const linkedFilename = request.keterangan?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
