@@ -28,29 +28,119 @@ export async function submitMedicineRequest(formData: FormData) {
   const stock = currentStock(medicine.stok_obat);
   if (jumlah > stock) redirect(`/pelanggan?obat=${idObat}&error=Stok%20obat%20tidak%20mencukupi`);
 
-  const requiresPrescription = /resep|antibiotik|keras/i.test(medicine.golongan_obat?.nama_golongan ?? "");
+  const requiresPrescription = /amoxicillin|amoxycillin/i.test(medicine.nama_obat);
+  if (!requiresPrescription) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`LOCK TABLE "transaksi", "detail_transaksi", "stok_obat", "permintaan_obat", "detail_permintaan_obat", "pelanggan" IN EXCLUSIVE MODE`;
+
+        const [lastTransaction, lastDetail, lastStock, lastRequest, lastRequestDetail] = await Promise.all([
+          tx.transaksi.aggregate({ _max: { id_transaksi: true } }),
+          tx.detail_transaksi.aggregate({ _max: { id_detail_transaksi: true } }),
+          tx.stok_obat.aggregate({ _max: { id_stok: true } }),
+          tx.permintaan_obat.aggregate({ _max: { id_permintaan: true } }),
+          tx.detail_permintaan_obat.aggregate({ _max: { id_detail_permintaan_obat: true } }),
+        ]);
+
+        const transactionId = (lastTransaction._max.id_transaksi ?? 0) + 1;
+        const detailId = (lastDetail._max.id_detail_transaksi ?? 0) + 1;
+        const stockId = (lastStock._max.id_stok ?? 0) + 1;
+        const requestId = (lastRequest._max.id_permintaan ?? 0) + 1;
+        const requestDetailId = (lastRequestDetail._max.id_detail_permintaan_obat ?? 0) + 1;
+        const subtotal = medicine.harga_jual.mul(jumlah);
+
+        await tx.transaksi.create({
+          data: {
+            id_transaksi: transactionId,
+            tanggal: new Date(),
+            nama_pelanggan: account.nama_pengguna,
+            catatan_obat: `${medicine.nama_obat} x${jumlah}`,
+            total: subtotal,
+            metode_pembayaran: String(metode),
+            status: "Selesai",
+          },
+        });
+
+        await tx.detail_transaksi.create({
+          data: {
+            id_detail_transaksi: detailId,
+            transaksi_id_transaksi: transactionId,
+            jumlah: jumlah,
+            harga_satuan: medicine.harga_jual,
+            subtotal: subtotal,
+          },
+        });
+
+        await tx.stok_obat.create({
+          data: {
+            id_stok: stockId,
+            obat_id_obat: medicine.id_obat,
+            jumlah_stok: stock - jumlah,
+            tanggal_update: new Date(),
+            keterangan: `Penjualan langsung pelanggan #${transactionId} (${medicine.nama_obat})`,
+          },
+        });
+
+        await tx.pelanggan.update({
+          where: { id_pengguna: session.userId },
+          data: { transaksi_id_transaksi: transactionId },
+        });
+
+        await tx.permintaan_obat.create({
+          data: {
+            id_permintaan: requestId,
+            pelanggan_id_pengguna: session.userId,
+            tanggal_permintaan: new Date(),
+            status_permintaan: "Selesai",
+            harga_obat: subtotal,
+            keterangan: `Pembayaran: ${metode} · Transaksi #${transactionId} (Langsung tanpa resep)`,
+          },
+        });
+
+        await tx.detail_permintaan_obat.create({
+          data: {
+            id_detail_permintaan_obat: requestDetailId,
+            permintaan_obat_id_permintaan: requestId,
+            id_obat: medicine.id_obat,
+            jumlah: String(jumlah),
+            catatan: typeof catatan === "string" ? catatan.slice(0, 225) : null,
+          },
+        });
+      });
+    } catch (error) {
+      console.error("Gagal memproses pembelian langsung pelanggan.", error);
+      redirect(`/pelanggan?obat=${idObat}&error=Transaksi%20belum%20dapat%20diproses`);
+    }
+
+    revalidatePath("/pelanggan");
+    revalidatePath("/apoteker/obat");
+    revalidatePath("/apoteker/stok");
+    revalidatePath("/apoteker/transaksi");
+    revalidatePath("/apoteker/laporan");
+    redirect(`/pelanggan?tab=Riwayat%20Transaksi&purchase=success`);
+  }
+
   const jakartaDateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const datePart = (type: "year" | "month" | "day") => jakartaDateParts.find((part) => part.type === type)?.value;
   const todayJakarta = `${datePart("year")}-${datePart("month")}-${datePart("day")}`;
   const requestDate = new Date(`${todayJakarta}T00:00:00.000Z`);
   const uploaded = formData.get("resep");
-  const hasUploadedRecipe = uploaded instanceof File && uploaded.size > 0;
   const doctor = String(formData.get("nama_dokter") ?? "").trim();
   const prescriptionDate = String(formData.get("tanggal_resep") ?? "");
   const parsedPrescriptionDate = /^\d{4}-\d{2}-\d{2}$/.test(prescriptionDate) ? new Date(`${prescriptionDate}T00:00:00.000Z`) : null;
   const hasValidPrescriptionDate = parsedPrescriptionDate !== null && !Number.isNaN(parsedPrescriptionDate.getTime()) && parsedPrescriptionDate.toISOString().slice(0, 10) === prescriptionDate;
-  let storedRecipe: string | undefined;
-  let inlineFileResep: string | undefined;
-  if (requiresPrescription || hasUploadedRecipe) {
-    if (!(uploaded instanceof File) || uploaded.size === 0 || uploaded.size > maxUploadBytes || !allowedTypes.has(uploaded.type)) redirect(`/pelanggan?obat=${idObat}&error=Unggah%20resep%20JPG%2C%20PNG%2C%20atau%20PDF%20maksimal%205%20MB`);
-    if (doctor.length > 100 || (doctor && !hasValidPrescriptionDate) || (prescriptionDate && !hasValidPrescriptionDate) || ((requiresPrescription || hasUploadedRecipe) && (!doctor || !hasValidPrescriptionDate)) || (hasValidPrescriptionDate && prescriptionDate > todayJakarta)) redirect(`/pelanggan?obat=${idObat}&error=Isi%20nama%20dokter%20dan%20tanggal%20resep%20dengan%20benar`);
-    const extension = allowedTypes.get(uploaded.type)!;
-    storedRecipe = `${randomUUID()}${extension}`;
-    const buffer = Buffer.from(await uploaded.arrayBuffer());
-    await saveRecipeAttachment(storedRecipe, buffer);
-    const dataUrl = `data:${uploaded.type};base64,${buffer.toString("base64")}`;
-    inlineFileResep = dataUrl.length <= 500 ? dataUrl : `/api/apoteker/resep/${storedRecipe}`;
+
+  if (!(uploaded instanceof File) || uploaded.size === 0 || uploaded.size > maxUploadBytes || !allowedTypes.has(uploaded.type)) {
+    redirect(`/pelanggan?obat=${idObat}&error=Unggah%20resep%20JPG%2C%20PNG%2C%20atau%20PDF%20maksimal%205%20MB`);
   }
+  if (!doctor || !hasValidPrescriptionDate || prescriptionDate > todayJakarta) {
+    redirect(`/pelanggan?obat=${idObat}&error=Isi%20nama%20dokter%20dan%20tanggal%20resep%20dengan%20benar`);
+  }
+  const extension = allowedTypes.get(uploaded.type)!;
+  const storedRecipe = `${randomUUID()}${extension}`;
+  const buffer = Buffer.from(await uploaded.arrayBuffer());
+  await saveRecipeAttachment(storedRecipe, buffer);
+  const dataUrl = `data:${uploaded.type};base64,${buffer.toString("base64")}`;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -62,14 +152,14 @@ export async function submitMedicineRequest(formData: FormData) {
         tx.detail_resep_obat.aggregate({ _max: { id_detail_resep: true } }),
       ]);
       const requestId = (lastRequest._max.id_permintaan ?? 0) + 1;
-      const recipeId = storedRecipe ? (lastRecipe._max.id_resep ?? 0) + 1 : null;
+      const recipeId = (lastRecipe._max.id_resep ?? 0) + 1;
       await tx.permintaan_obat.create({ data: {
         id_permintaan: requestId,
         pelanggan_id_pengguna: session.userId,
         tanggal_permintaan: requestDate,
         status_permintaan: "Menunggu",
         harga_obat: medicine.harga_jual.mul(jumlah),
-        keterangan: [`Pembayaran: ${metode}`, storedRecipe ? `Resep ID: ${recipeId}; private/resep/${storedRecipe}` : "", typeof catatan === "string" ? catatan.slice(0, 90) : ""].filter(Boolean).join(" · ").slice(0, 225),
+        keterangan: [`Pembayaran: ${metode}`, `Resep ID: ${recipeId}; private/resep/${storedRecipe}`, typeof catatan === "string" ? catatan.slice(0, 90) : ""].filter(Boolean).join(" · ").slice(0, 225),
       } });
       await tx.detail_permintaan_obat.create({ data: {
         id_detail_permintaan_obat: (lastDetail._max.id_detail_permintaan_obat ?? 0) + 1,
@@ -78,26 +168,24 @@ export async function submitMedicineRequest(formData: FormData) {
         jumlah: String(jumlah),
         catatan: typeof catatan === "string" ? catatan.slice(0, 225) : null,
       } });
-      if (storedRecipe && recipeId !== null) {
-        await tx.resep_obat.create({ data: {
-          id_resep: recipeId,
-          pelanggan_id_pengguna: session.userId,
-          permintaan_obat_id_permintaan: requestId,
-          tanggal_resep: parsedPrescriptionDate,
-          nama_pasien: account.nama_pengguna,
-          nama_dokter: doctor,
-          daftar_obat: `${medicine.nama_obat} x${jumlah}`,
-          status_validasi: "Menunggu",
-          catatan: `Lampiran: private/resep/${storedRecipe}`,
-          file_resep: inlineFileResep ?? `/api/apoteker/resep/${storedRecipe}`,
-        } });
-        await tx.detail_resep_obat.create({ data: {
-          id_detail_resep: (lastRecipeDetail._max.id_detail_resep ?? 0) + 1,
-          id_obat: medicine.id_obat,
-          id_resep: recipeId,
-          jumlah: String(jumlah),
-        } });
-      }
+      await tx.resep_obat.create({ data: {
+        id_resep: recipeId,
+        pelanggan_id_pengguna: session.userId,
+        permintaan_obat_id_permintaan: requestId,
+        tanggal_resep: parsedPrescriptionDate,
+        nama_pasien: account.nama_pengguna,
+        nama_dokter: doctor,
+        daftar_obat: `${medicine.nama_obat} x${jumlah}`,
+        status_validasi: "Menunggu",
+        catatan: `Lampiran: private/resep/${storedRecipe}`,
+        file_resep: dataUrl,
+      } });
+      await tx.detail_resep_obat.create({ data: {
+        id_detail_resep: (lastRecipeDetail._max.id_detail_resep ?? 0) + 1,
+        id_obat: medicine.id_obat,
+        id_resep: recipeId,
+        jumlah: String(jumlah),
+      } });
     });
   } catch (error) {
     console.error("Gagal menyimpan permintaan obat pelanggan.", error);
@@ -106,7 +194,7 @@ export async function submitMedicineRequest(formData: FormData) {
   revalidatePath("/pelanggan");
   revalidatePath("/apoteker/permintaan");
   revalidatePath("/apoteker/resep");
-  redirect(`/pelanggan?tab=Resep%20Saya&success=${storedRecipe ? "prescription" : "request"}`);
+  redirect(`/pelanggan?tab=Resep%20Saya&success=prescription`);
 }
 
 export async function continueApprovedRequest(formData: FormData) {
@@ -131,7 +219,7 @@ export async function continueApprovedRequest(formData: FormData) {
       if (!request.detail_permintaan_obat.length) throw new Error("Detail obat pada permintaan tidak ditemukan.");
 
       let recipe = request.resep_obat;
-      const prescriptionDetails = request.detail_permintaan_obat.filter((detail) => /resep|antibiotik|keras/i.test(detail.obat.golongan_obat?.nama_golongan ?? ""));
+      const prescriptionDetails = request.detail_permintaan_obat.filter((detail) => /amoxicillin|amoxycillin/i.test(detail.obat.nama_obat));
       if (!recipe && prescriptionDetails.length && request.pelanggan_id_pengguna) {
         const legacyRecipeId = request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1];
         const legacyFilename = request.keterangan?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
@@ -148,7 +236,7 @@ export async function continueApprovedRequest(formData: FormData) {
         if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error(`Jumlah ${detail.obat.nama_obat} tidak valid.`);
         if (detail.obat.status !== "Aktif") throw new Error(`${detail.obat.nama_obat} sudah tidak tersedia.`);
         if (currentStock(detail.obat.stok_obat) < quantity) throw new Error(`Stok ${detail.obat.nama_obat} tidak mencukupi.`);
-        if (/resep|antibiotik|keras/i.test(detail.obat.golongan_obat?.nama_golongan ?? "")) {
+        if (/amoxicillin|amoxycillin/i.test(detail.obat.nama_obat)) {
           if (!recipe || recipe.pelanggan_id_pengguna !== session.userId || !["Disetujui", "Valid"].includes(recipe.status_validasi ?? "") || !recipe.detail_resep_obat.some((line) => line.id_obat === detail.id_obat)) {
             throw new Error(`Resep untuk ${detail.obat.nama_obat} belum disetujui Apoteker.`);
           }

@@ -8,7 +8,7 @@ import { reviewPrescription } from "@/app/apoteker/actions";
 export function PrescriptionViewer({ src, filename, patient }: { src: string; filename: string; patient: string }) {
   const [zoom, setZoom] = useState(100);
   const [open, setOpen] = useState(false);
-  const isPdf = filename.toLowerCase().endsWith(".pdf");
+  const isPdf = filename.toLowerCase().endsWith(".pdf") || src.startsWith("data:application/pdf");
   const increase = () => setZoom((value) => Math.min(value + 20, 200));
   const decrease = () => setZoom((value) => Math.max(value - 20, 60));
 

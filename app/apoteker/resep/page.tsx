@@ -66,7 +66,7 @@ async function ResepContent({ searchParams }: Props) {
 
   const rows = requests.map((request) => {
     const matched = matchedRows.find((row) => row.request.id_permintaan === request.id_permintaan);
-    const requiresPrescription = request.detail_permintaan_obat.some((detail) => /resep|antibiotik|keras/i.test(detail.obat.golongan_obat?.nama_golongan ?? ""));
+    const requiresPrescription = request.detail_permintaan_obat.some((detail) => /amoxicillin|amoxycillin/i.test(detail.obat.nama_obat));
     return matched ?? { request, recipe: null, status: requiresPrescription ? "Belum ada resep" as const : "Tidak perlu resep" as const, filename: null };
   });
   const filteredRows = selected === "Semua" ? rows : rows.filter((row) => row.status === selected);

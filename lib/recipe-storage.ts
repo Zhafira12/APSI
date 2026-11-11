@@ -109,12 +109,14 @@ export async function readRecipeAttachment(filename: string): Promise<{ buffer: 
   }
 
   // Check if stored in database or linked to a recipe record
+  const idFromFallback = filename.match(/^00000000-0000-4000-8000-(\d+)\.[a-z]+$/i)?.[1];
   const recipe = await prisma.resep_obat.findFirst({
     where: {
       OR: [
         { catatan: { contains: filename } },
         { file_resep: { contains: filename } },
         { permintaan_obat: { keterangan: { contains: filename } } },
+        ...(idFromFallback ? [{ id_resep: Number(idFromFallback) }] : []),
       ],
     },
     select: {

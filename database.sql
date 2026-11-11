@@ -162,7 +162,7 @@ CREATE TABLE resep_obat (
   daftar_obat VARCHAR(225),
   status_validasi VARCHAR(30),
   catatan VARCHAR(225),
-  file_resep VARCHAR(500),
+  file_resep TEXT,
   permintaan_obat_id_permintaan INTEGER UNIQUE
 );
 

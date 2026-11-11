@@ -158,7 +158,7 @@ export async function reviewRequest(formData: FormData) {
         for (const detail of request.detail_permintaan_obat) {
           const requested = Number(detail.jumlah ?? "0");
           if (!Number.isSafeInteger(requested) || requested < 1 || currentStock(detail.obat.stok_obat) < requested) throw new Error(`Stok ${detail.obat.nama_obat} tidak mencukupi.`);
-          if (/resep|antibiotik|keras/i.test(detail.obat.golongan_obat?.nama_golongan ?? "")) {
+          if (/amoxicillin|amoxycillin/i.test(detail.obat.nama_obat)) {
             const recipeId = Number(request.keterangan?.match(/Resep ID:\s*(\d+)/i)?.[1]);
             const requestFile = request.keterangan?.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|pdf))/i)?.[1];
             const linkedRecipe = request.resep_obat ?? (request.pelanggan && Number.isInteger(recipeId)
@@ -211,7 +211,7 @@ export async function createSale(formData: FormData) {
         return { item, medicine, subtotal: Math.round(Number(medicine.harga_jual) * item.jumlah * 100) };
       });
       for (const line of lines) {
-        if (/resep|antibiotik|keras/i.test(line.medicine.golongan_obat?.nama_golongan ?? "")) {
+        if (/amoxicillin|amoxycillin/i.test(line.medicine.nama_obat)) {
           if (!customerId) throw new Error(`Pilih pelanggan dengan resep tervalidasi untuk ${line.medicine.nama_obat}.`);
           const validRecipe = await tx.resep_obat.findFirst({ where: { pelanggan_id_pengguna: customerId, status_validasi: { in: ["Disetujui", "Valid"] }, detail_resep_obat: { some: { id_obat: line.medicine.id_obat } } }, select: { id_resep: true } });
           if (!validRecipe) throw new Error(`Resep valid untuk ${line.medicine.nama_obat} belum tersedia.`);

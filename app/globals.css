@@ -437,6 +437,8 @@ button { font: inherit; }
 .detail-body h2 { margin: 10px 0; color: #173c29; font-size: 23px; }
 .detail-body > p { color: #718078; font-size: 12px; }
 .detail-body .detail-price { color: #087443; font-size: 21px; font-weight: 750; }
+.detail-prescription-badge { display: inline-block; margin: 8px 0 4px; border: 1px solid #ffd8a8; border-radius: 6px; padding: 6px 10px; background: #fff5e6; color: #986019; font-size: 11px; font-weight: 600; }
+.detail-otc-badge { display: inline-block; margin: 8px 0 4px; border: 1px solid #c3e6cb; border-radius: 6px; padding: 6px 10px; background: #edf8ef; color: #1b7a48; font-size: 11px; font-weight: 600; }
 .request-form { display: grid; gap: 12px; margin-top: 20px; }
 .request-form label { display: grid; gap: 6px; color: #385844; font-size: 11px; font-weight: 650; }
 .request-form input,.request-form select,.request-form textarea { width: 100%; min-height: 38px; border: 1px solid #dce7df; border-radius: 7px; padding: 8px 10px; background: white; color: #244531; font: inherit; font-size: 12px; }

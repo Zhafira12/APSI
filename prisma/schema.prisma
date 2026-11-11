@@ -254,7 +254,7 @@ model resep_obat {
   daftar_obat           String?    @db.VarChar(225)
   status_validasi       String?    @db.VarChar(30)
   catatan               String?    @db.VarChar(225)
-  file_resep            String?    @db.VarChar(500)
+  file_resep            String?    @db.Text
   permintaan_obat_id_permintaan Int? @unique
   obat                  obat[]
   apoteker              apoteker?  @relation(fields: [apoteker_id_pengguna], references: [id_pengguna], map: "fk_resep_apoteker")
