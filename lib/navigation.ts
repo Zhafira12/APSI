@@ -1,3 +1,5 @@
+import type { UserRole } from "@/lib/auth";
+
 export type SidebarMenuItem = {
   label: string;
   href: string;
@@ -5,13 +7,28 @@ export type SidebarMenuItem = {
   tab?: string;
 };
 
-export const SIDEBAR_MENU_BY_ROLE: {
-  apoteker: readonly SidebarMenuItem[];
-  pelanggan: readonly SidebarMenuItem[];
-} = {
+export const SIDEBAR_MENU_BY_ROLE: Record<UserRole, readonly SidebarMenuItem[]> = {
+  owner: [
+    { label: "Beranda", href: "/", icon: "home" },
+    { label: "Data Obat", href: "/apoteker/obat", icon: "medicine" },
+    { label: "Laporan", href: "/apoteker/laporan", icon: "report" },
+    { label: "Stok Obat", href: "/apoteker/stok", icon: "stock" },
+  ],
+  admin: [
+    { label: "Beranda", href: "/", icon: "home" },
+    { label: "Data Obat", href: "/apoteker/obat", icon: "medicine" },
+    { label: "Laporan", href: "/apoteker/laporan", icon: "report" },
+    { label: "Stok Obat", href: "/apoteker/stok", icon: "stock" },
+  ],
   apoteker: [
     { label: "Beranda", href: "/", icon: "home" },
     { label: "Validasi Resep", href: "/apoteker/resep", icon: "prescription" },
+    { label: "Data Obat", href: "/apoteker/obat", icon: "medicine" },
+    { label: "Laporan", href: "/apoteker/laporan", icon: "report" },
+    { label: "Stok Obat", href: "/apoteker/stok", icon: "stock" },
+  ],
+  asisten_apoteker: [
+    { label: "Beranda", href: "/", icon: "home" },
     { label: "Data Obat", href: "/apoteker/obat", icon: "medicine" },
     { label: "Laporan", href: "/apoteker/laporan", icon: "report" },
     { label: "Stok Obat", href: "/apoteker/stok", icon: "stock" },
@@ -22,4 +39,4 @@ export const SIDEBAR_MENU_BY_ROLE: {
     { label: "Resep Saya", href: "/pelanggan?tab=Resep%20Saya", icon: "prescription", tab: "Resep Saya" },
     { label: "Riwayat Transaksi", href: "/pelanggan?tab=Riwayat%20Transaksi", icon: "history", tab: "Riwayat Transaksi" },
   ],
-} as const;
+};

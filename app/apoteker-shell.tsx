@@ -34,7 +34,7 @@ export function ApotekerShell({
   name: string;
   role?: StaffRole;
 }) {
-  const menuItems = SIDEBAR_MENU_BY_ROLE.apoteker;
+  const menuItems = SIDEBAR_MENU_BY_ROLE[role] ?? SIDEBAR_MENU_BY_ROLE.apoteker;
   const roleLabel = ROLE_LABELS[role] ?? "Apoteker";
 
   return (
