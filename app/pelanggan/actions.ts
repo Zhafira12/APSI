@@ -106,8 +106,9 @@ export async function submitMedicineRequest(formData: FormData) {
             catatan: typeof catatan === "string" ? catatan.slice(0, 225) : null,
           },
         });
-      });
-    } catch (error) {
+      }, { maxWait: 10000, timeout: 15000 });
+    } catch (error: any) {
+      if (error?.digest?.startsWith("NEXT_REDIRECT")) throw error;
       console.error("Gagal memproses pembelian langsung pelanggan.", error);
       redirect(`/pelanggan?obat=${idObat}&error=Transaksi%20belum%20dapat%20diproses`);
     }
@@ -186,8 +187,9 @@ export async function submitMedicineRequest(formData: FormData) {
         id_resep: recipeId,
         jumlah: String(jumlah),
       } });
-    });
-  } catch (error) {
+    }, { maxWait: 10000, timeout: 15000 });
+  } catch (error: any) {
+    if (error?.digest?.startsWith("NEXT_REDIRECT")) throw error;
     console.error("Gagal menyimpan permintaan obat pelanggan.", error);
     redirect(`/pelanggan?obat=${idObat}&error=Permintaan%20belum%20dapat%20disimpan`);
   }

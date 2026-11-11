@@ -435,48 +435,13 @@ INSERT INTO stok_obat (id_stok, obat_id_obat, jumlah_stok, tanggal_update, keter
   (6, 6, 40, '2026-10-18', 'Stok awal Betadine')
 ON CONFLICT (id_stok) DO NOTHING;
 
--- 5.10 Permintaan Obat
-INSERT INTO permintaan_obat (id_permintaan, pelanggan_id_pengguna, tanggal_permintaan, status_permintaan, keterangan, harga_obat) VALUES
-  (1, 3, '2026-10-18', 'Menunggu', 'Permintaan penambahan stok Paracetamol', 3000),
-  (2, 4, '2026-10-18', 'Disetujui', 'Permintaan penambahan stok Amoxicillin', 8000),
-  (3, 5, '2026-10-19', 'Diproses', 'Permintaan penambahan stok Vitamin C', 5000),
-  (4, 6, '2026-10-20', 'Menunggu', 'Permintaan penambahan stok Amoxicillin', 8000),
-  (5, 7, '2026-10-21', 'Disetujui', 'Permintaan penambahan stok Vitamin C', 5000),
-  (6, 8, '2026-10-21', 'Diproses', 'Permintaan penambahan stok Vitamin C', 5000)
-ON CONFLICT (id_permintaan) DO NOTHING;
+-- 5.10 Permintaan Obat (Dikosongkan sesuai permintaan sistem - diisi dari pengajuan pelanggan baru)
+-- INSERT INTO permintaan_obat ...
+-- INSERT INTO detail_permintaan_obat ...
 
-INSERT INTO detail_permintaan_obat (id_detail_permintaan_obat, permintaan_obat_id_permintaan, id_obat, jumlah, catatan) VALUES
-  (1, 1, 1, '2', 'Paracetamol'),
-  (2, 2, 2, '1', 'Amoxicillin'),
-  (3, 3, 3, '2', 'Vitamin C'),
-  (4, 4, 2, '1', 'Amoxicillin'),
-  (5, 5, 3, '1', 'Vitamin C'),
-  (6, 6, 3, '1', 'Vitamin C')
-ON CONFLICT (id_detail_permintaan_obat) DO NOTHING;
-
--- 5.11 Resep Obat
-INSERT INTO resep_obat (id_resep, apoteker_id_pengguna, pelanggan_id_pengguna, tanggal_resep, nama_pasien, nama_dokter, daftar_obat, status_validasi, catatan, permintaan_obat_id_permintaan) VALUES
-  (1, 1, 3, '2026-10-18', 'Mulan', 'Dr. Budi', 'Paracetamol; Amoxicillin', 'Disetujui', 'Resep untuk pasien Mulan', 1),
-  (2, 1, 4, '2026-10-18', 'Pevita', 'Dr. Ani', 'Paracetamol; Vitamin C', 'Disetujui', 'Resep untuk pasien Pevita', 2),
-  (3, 1, 5, '2026-10-19', 'Ibnu', 'Dr. Ani', 'Amoxicillin; Vitamin C', 'Disetujui', 'Resep untuk pasien Ibnu', 3),
-  (4, 1, 6, '2026-10-20', 'Dion', 'Dr. Budi', 'Paracetamol; Vitamin C', 'Disetujui', 'Resep untuk pasien Dion', 4),
-  (5, 1, 7, '2026-10-22', 'Panji', 'Dr. Budi', 'Paracetamol', 'Menunggu', 'Menunggu validasi apoteker', 5),
-  (6, 1, 8, '2026-10-22', 'Kevin', 'Dr. Ani', 'Amoxicillin; Paracetamol', 'Menunggu', 'Menunggu validasi apoteker', 6)
-ON CONFLICT (id_resep) DO NOTHING;
-
-INSERT INTO detail_resep_obat (id_detail_resep, id_obat, id_resep, jumlah, aturan_pakai) VALUES
-  (1, 1, 1, '2', '3 x 1 tablet sesudah makan'),
-  (2, 2, 1, '1', '3 x 1 kapsul sesudah makan dihabiskan'),
-  (3, 1, 2, '1', '3 x 1 tablet'),
-  (4, 3, 2, '2', '1 x 1 tablet'),
-  (5, 2, 3, '1', '3 x 1 kapsul dihabiskan'),
-  (6, 3, 3, '2', '1 x 1 tablet'),
-  (7, 1, 4, '3', '3 x 1 tablet'),
-  (8, 3, 4, '1', '1 x 1 tablet'),
-  (9, 1, 5, '4', '3 x 1 tablet jika demam'),
-  (10, 2, 6, '2', '3 x 1 kapsul dihabiskan'),
-  (11, 1, 6, '1', '3 x 1 tablet jika demam')
-ON CONFLICT (id_detail_resep) DO NOTHING;
+-- 5.11 Resep Obat (Dikosongkan sesuai permintaan sistem - diisi dari pengajuan resep pelanggan baru)
+-- INSERT INTO resep_obat ...
+-- INSERT INTO detail_resep_obat ...
 
 -- 5.12 Transaksi Penjualan
 INSERT INTO transaksi (id_transaksi, apoteker_id_pengguna, tanggal, nama_pelanggan, nama_pengguna, catatan_obat, total, metode_pembayaran, status) VALUES
