@@ -4,18 +4,19 @@ import Image from "next/image";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logout } from "@/app/login/actions";
-import { continueApprovedRequest } from "./actions";
+import { confirmQrisPayment, continueApprovedRequest } from "./actions";
 import MedicineCatalog from "./medicine-catalog";
 import { currentStock } from "@/lib/apoteker-data";
 import { SIDEBAR_MENU_BY_ROLE } from "@/lib/navigation";
 import { SidebarIcon } from "@/app/apoteker-shell";
+import { createQrisQrDataUrl } from "@/lib/qris";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Beranda Pelanggan | Apotek Sri Utama", description: "Cari dan ajukan permintaan obat di Apotek Sri Utama." };
 
 export const dynamic = "force-dynamic";
 
-type PageProps = { searchParams: Promise<{ q?: string; golongan?: string; obat?: string; tab?: string; error?: string; success?: string; purchase?: string }> };
+type PageProps = { searchParams: Promise<{ q?: string; golongan?: string; obat?: string; tab?: string; error?: string; success?: string; purchase?: string; id?: string }> };
 type CustomerRequest = { id_permintaan: number; tanggal_permintaan: Date | null; status_permintaan: string | null; keterangan: string | null; resep_obat: CustomerPrescription | null; detail_permintaan_obat: { id_obat: number; jumlah: string | null; obat: { nama_obat: string; golongan_obat: { nama_golongan: string } | null; stok_obat: { id_stok: number; jumlah_stok: number; tanggal_update: Date | null; keterangan: string | null }[] } }[] };
 type CustomerPrescription = { id_resep: number; status_validasi: string | null; catatan: string | null; detail_resep_obat: { id_obat: number }[] };
 const money = (value: number | string) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value));
@@ -70,6 +71,7 @@ async function CustomerHome({ searchParams }: PageProps) {
         {params.error && <p className="customer-alert" role="alert">{params.error}</p>}
         {params.success && <RequestSuccessDialog withPrescription={params.success === "prescription"}/>}
         {params.purchase === "success" && <PurchaseSuccessDialog/>}
+        {(params.purchase === "qris" || params.purchase === "confirmed") && <QrisPaymentDialog transactionId={Number(params.id)} customerName={account.nama_pengguna} confirmed={params.purchase === "confirmed"}/>}
         {activeTab === "Beranda" || activeTab === "Cari Obat" ? <>
           <div className="customer-welcome"><div><p className="customer-kicker">APOTEK SRI UTAMA</p><h1>{activeTab === "Beranda" ? <>Selamat datang, {account.nama_pengguna}!</> : "Cari Obat"}</h1><p>Temukan obat dan kebutuhan kesehatan Anda dengan mudah.</p></div><span className="welcome-art" aria-hidden="true">✚</span></div>
           <MedicineCatalog
@@ -94,7 +96,7 @@ async function CustomerHome({ searchParams }: PageProps) {
             selectedGolongan={params.golongan}
             searchQuery={params.q}
           />
-        </> : activeTab === "Resep Saya" ? <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Resep Saya</h1><RequestList requests={requests} prescriptions={prescriptions}/></section> : <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Riwayat Transaksi</h1>{transactions.length ? transactions.map((tx) => <article className="history-row" key={tx.id_transaksi}><b>Transaksi #{tx.id_transaksi}</b><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(tx.tanggal)}</span><span>{money(tx.total.toString())}</span><span>{tx.status ?? "Diproses"}</span></article>) : <p className="catalog-empty">Belum ada transaksi pada akun Anda.</p>}</section>}
+        </> : activeTab === "Resep Saya" ? <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Resep Saya</h1><RequestList requests={requests} prescriptions={prescriptions}/></section> : <section className="catalog-section"><p className="customer-kicker">AKUN ANDA</p><h1 className="customer-page-title">Riwayat Transaksi</h1>{transactions.length ? transactions.map((tx) => <article className="history-row" key={tx.id_transaksi}><div><b>Transaksi #{tx.id_transaksi}</b><small style={{ display: "block", color: "#617c6d", fontSize: "11px", marginTop: "2px" }}>{tx.catatan_obat ?? "Pesanan obat"}</small></div><span>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(tx.tanggal)}</span><span>{money(tx.total.toString())}</span><span className={`status-pill ${tx.status?.toLowerCase().replace(/\s+/g, "-")}`}>{tx.status ?? "Diproses"}</span>{tx.metode_pembayaran === "QRIS" && tx.status === "Menunggu Pembayaran" ? <Link href={`/pelanggan?purchase=qris&id=${tx.id_transaksi}`} className="medicine-action" style={{ padding: "6px 14px", fontSize: "12px", width: "auto", textDecoration: "none" }}>Bayar QRIS →</Link> : null}</article>) : <p className="catalog-empty">Belum ada transaksi pada akun Anda.</p>}</section>}
         <footer className="customer-footer">© Apotek Sri Utama · Sehat Bersama, Setiap Saat</footer>
       </section>
     </div>
@@ -123,6 +125,179 @@ function PurchaseSuccessDialog() {
     <Link className="request-success-button" href="/pelanggan?tab=Riwayat%20Transaksi">Lihat riwayat transaksi</Link>
     <Link className="request-success-close" href="/pelanggan?tab=Resep%20Saya">Kembali ke resep saya</Link>
   </section></div>;
+}
+
+async function QrisPaymentDialog({ transactionId, customerName, confirmed }: { transactionId: number; customerName: string; confirmed: boolean }) {
+  const transaction = Number.isSafeInteger(transactionId) && transactionId > 0
+    ? await prisma.transaksi.findFirst({
+        where: { id_transaksi: transactionId, nama_pelanggan: customerName, metode_pembayaran: "QRIS" },
+        select: { id_transaksi: true, total: true, status: true, catatan_obat: true },
+      })
+    : null;
+  if (!transaction) return null;
+
+  const qrDataUrl = await createQrisQrDataUrl(Number(transaction.total), `TRX${transaction.id_transaksi}`);
+  const isPaid = transaction.status === "Selesai" || confirmed;
+
+  return (
+    <div className="request-success-backdrop" style={{ zIndex: 9999 }}>
+      <section
+        className="request-success-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qris-payment-title"
+        style={{ maxWidth: 440, padding: 0, overflow: "hidden", textAlign: "left" }}
+      >
+        {/* Top QRIS Banner */}
+        <div
+          style={{
+            background: "#e52329",
+            padding: "14px 20px 12px",
+            color: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "3px solid #b81419",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+            <span style={{ fontSize: "24px", fontWeight: "900", letterSpacing: "1px", lineHeight: 1 }}>QRIS</span>
+            <span style={{ fontSize: "10px", opacity: 0.92, fontWeight: 500 }}>Pembayaran Digital Nasional</span>
+          </div>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              letterSpacing: "0.5px",
+              background: "#ffffff",
+              color: "#e52329",
+              padding: "3px 8px",
+              borderRadius: "5px",
+            }}
+          >
+            GPN
+          </span>
+        </div>
+
+        {/* Merchant & Order Details */}
+        <div style={{ padding: "16px 20px 12px", textAlign: "center", borderBottom: "1px dashed #d8e4db" }}>
+          <p style={{ margin: "0 0 2px", fontSize: "11px", color: "#6e8376", fontWeight: 650, letterSpacing: "0.04em" }}>
+            MERCHANT RESMI · TRANSAKSI #{transaction.id_transaksi}
+          </p>
+          <h3 style={{ margin: "0 0 4px", fontSize: "18px", color: "#143c2b", fontWeight: 800 }}>
+            APOTEK SRI UTAMA
+          </h3>
+          <p style={{ margin: 0, fontSize: "10px", color: "#8a9c92" }}>
+            NMID: ID1020261111001 · Padang
+          </p>
+        </div>
+
+        {/* QR Code */}
+        <div style={{ padding: "16px 20px 12px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div
+            style={{
+              padding: "12px",
+              background: "#ffffff",
+              borderRadius: "14px",
+              border: "1.5px solid #d9e6de",
+              boxShadow: "0 6px 18px rgba(0, 0, 0, 0.06)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={qrDataUrl}
+              alt={`QRIS Apotek Sri Utama Transaksi #${transaction.id_transaksi}`}
+              width={220}
+              height={220}
+              style={{ display: "block", borderRadius: "6px" }}
+            />
+          </div>
+          <span style={{ fontSize: "11px", color: "#617c6d", marginTop: "8px", fontWeight: 600, textAlign: "center" }}>
+            Pindai menggunakan BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay
+          </span>
+        </div>
+
+        {/* Amount & Status Summary */}
+        <div
+          style={{
+            margin: "0 20px 16px",
+            padding: "12px 16px",
+            background: "#f3f8f5",
+            borderRadius: "10px",
+            border: "1px solid #dce8e0",
+          }}
+        >
+          {transaction.catatan_obat && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+              <span style={{ fontSize: "11px", color: "#546e5f" }}>Pesanan:</span>
+              <span style={{ fontSize: "12px", color: "#1b3f2c", fontWeight: 750 }}>{transaction.catatan_obat}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+            <span style={{ fontSize: "12px", color: "#1b3f2c", fontWeight: 700 }}>Total Pembayaran:</span>
+            <span style={{ fontSize: "18px", color: "#087443", fontWeight: 800 }}>{money(transaction.total.toString())}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "11px", color: "#546e5f" }}>Status Transaksi:</span>
+            <span style={{ fontSize: "12px", fontWeight: 750, color: isPaid ? "#087443" : "#d9534f" }}>
+              {isPaid ? "✓ Lunas / Selesai" : "Menunggu Pembayaran"}
+            </span>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {!isPaid ? (
+            <form action={confirmQrisPayment}>
+              <input type="hidden" name="id_transaksi" value={transaction.id_transaksi} />
+              <button
+                type="submit"
+                className="request-success-button"
+                style={{
+                  width: "100%",
+                  margin: 0,
+                  background: "#087443",
+                  color: "#ffffff",
+                  fontWeight: 750,
+                  minHeight: 44,
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  border: 0,
+                }}
+              >
+                ✓ Konfirmasi Pembayaran (Saya Sudah Bayar)
+              </button>
+            </form>
+          ) : (
+            <div
+              style={{
+                textAlign: "center",
+                color: "#087443",
+                background: "#e8f5ed",
+                border: "1px solid #c2e2ce",
+                borderRadius: 8,
+                fontWeight: 700,
+                fontSize: "13px",
+                padding: "10px",
+              }}
+            >
+              ✓ Terima kasih! Pembayaran Anda telah terkonfirmasi.
+            </div>
+          )}
+          <Link
+            className="request-success-close"
+            href="/pelanggan?tab=Riwayat%20Transaksi"
+            style={{ textAlign: "center", fontSize: "12px", color: "#546e5f", textDecoration: "none", marginTop: 4 }}
+          >
+            ← Tutup & Lihat Riwayat Transaksi
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function RequestList({ requests, prescriptions }: { requests: CustomerRequest[]; prescriptions: CustomerPrescription[] }) {

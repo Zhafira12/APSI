@@ -426,6 +426,9 @@ button { font: inherit; }
 .request-success-button:hover { background:#005b35; }
 .request-success-close { margin-top:13px; color:#5f7668; font-size:11px; font-weight:650; text-decoration:none; }
 .request-success-close:hover { color:#087443; text-decoration:underline; }
+.customer-qris-image { display:block; width:min(100%,260px); aspect-ratio:1; object-fit:contain; border:1px solid #dce9df; border-radius:12px; margin:18px auto 4px; background:#fff; }
+.customer-qris-unavailable { display:grid; min-height:130px; place-items:center; border:1px dashed #c5d9ca; border-radius:12px; margin:18px 0 4px; padding:18px; color:#64766a; font-size:13px; }
+.customer-continue-form .request-success-button { border:0; cursor:pointer; }
 @keyframes request-success-in { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
 @media(max-width:480px) { .request-success-dialog { padding:25px 19px 21px; border-radius:16px; }.request-success-icon { width:64px;height:64px; } }
 .profile-card { align-items: flex-start; flex-direction: column; gap: 12px; }

@@ -27,6 +27,7 @@ export async function submitMedicineRequest(formData: FormData) {
   if (account?.status !== "Aktif" || !medicine || medicine.status !== "Aktif") redirect("/login");
   const stock = currentStock(medicine.stok_obat);
   if (jumlah > stock) redirect(`/pelanggan?obat=${idObat}&error=Stok%20obat%20tidak%20mencukupi`);
+  let createdTransactionId: number | null = null;
 
   const requiresPrescription = /amoxicillin|amoxycillin/i.test(medicine.nama_obat);
   if (!requiresPrescription) {
@@ -43,6 +44,7 @@ export async function submitMedicineRequest(formData: FormData) {
         ]);
 
         const transactionId = (lastTransaction._max.id_transaksi ?? 0) + 1;
+        createdTransactionId = transactionId;
         const detailId = (lastDetail._max.id_detail_transaksi ?? 0) + 1;
         const stockId = (lastStock._max.id_stok ?? 0) + 1;
         const requestId = (lastRequest._max.id_permintaan ?? 0) + 1;
@@ -57,7 +59,7 @@ export async function submitMedicineRequest(formData: FormData) {
             catatan_obat: `${medicine.nama_obat} x${jumlah}`,
             total: subtotal,
             metode_pembayaran: String(metode),
-            status: "Selesai",
+            status: String(metode) === "QRIS" ? "Menunggu Pembayaran" : "Selesai",
           },
         });
 
@@ -91,7 +93,7 @@ export async function submitMedicineRequest(formData: FormData) {
             id_permintaan: requestId,
             pelanggan_id_pengguna: session.userId,
             tanggal_permintaan: new Date(),
-            status_permintaan: "Selesai",
+            status_permintaan: String(metode) === "QRIS" ? "Menunggu Pembayaran" : "Selesai",
             harga_obat: subtotal,
             keterangan: `Pembayaran: ${metode} · Transaksi #${transactionId} (Langsung tanpa resep)`,
           },
@@ -118,7 +120,7 @@ export async function submitMedicineRequest(formData: FormData) {
     revalidatePath("/apoteker/stok");
     revalidatePath("/apoteker/transaksi");
     revalidatePath("/apoteker/laporan");
-    redirect(`/pelanggan?tab=Riwayat%20Transaksi&purchase=success`);
+    redirect(`/pelanggan?tab=Riwayat%20Transaksi&purchase=${String(metode) === "QRIS" ? "qris" : "success"}&id=${createdTransactionId}`);
   }
 
   const jakartaDateParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -246,6 +248,7 @@ export async function continueApprovedRequest(formData: FormData) {
       }
 
       const payment = request.keterangan?.match(/Pembayaran:\s*(QRIS|Tunai)/i)?.[1] ?? "Tunai";
+      const isQris = payment === "QRIS";
       const lines = request.detail_permintaan_obat.map((detail) => {
         const quantity = Number(detail.jumlah);
         const subtotalCents = Math.round(Number(detail.obat.harga_jual) * quantity * 100);
@@ -269,7 +272,7 @@ export async function continueApprovedRequest(formData: FormData) {
         catatan_obat: note,
         total: (totalCents / 100).toFixed(2),
         metode_pembayaran: payment,
-        status: "Selesai",
+        status: isQris ? "Menunggu Pembayaran" : "Selesai",
       } });
       for (const line of lines) {
         await tx.detail_transaksi.create({ data: {
@@ -288,10 +291,49 @@ export async function continueApprovedRequest(formData: FormData) {
         } });
       }
       await tx.pelanggan.update({ where: { id_pengguna: session.userId }, data: { transaksi_id_transaksi: transactionId } });
-      await tx.permintaan_obat.update({ where: { id_permintaan: idRequest }, data: { status_permintaan: "Selesai" } });
+      await tx.permintaan_obat.update({ where: { id_permintaan: idRequest }, data: { status_permintaan: isQris ? "Menunggu Pembayaran" : "Selesai" } });
     });
   } catch (error) {
     redirect(`/pelanggan?tab=Resep%20Saya&error=${encodeURIComponent(error instanceof Error ? error.message : "Transaksi belum dapat dibuat")}`);
   }
+  const payment = (await prisma.permintaan_obat.findUnique({ where: { id_permintaan: idRequest }, select: { keterangan: true } }))?.keterangan?.match(/Pembayaran:\s*(QRIS|Tunai)/i)?.[1] ?? "Tunai";
+  if (payment === "QRIS") {
+    const lastTx = await prisma.pelanggan.findUnique({ where: { id_pengguna: session.userId }, select: { transaksi_id_transaksi: true } });
+    redirect(`/pelanggan?tab=Riwayat%20Transaksi&purchase=qris&id=${lastTx?.transaksi_id_transaksi}`);
+  }
   redirect(`/pelanggan?tab=Resep%20Saya&purchase=success`);
+}
+
+export async function confirmQrisPayment(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "pelanggan") redirect("/login");
+  const transactionId = Number(formData.get("id_transaksi"));
+  if (!Number.isSafeInteger(transactionId) || transactionId < 1) redirect("/pelanggan?tab=Riwayat%20Transaksi&error=Transaksi%20tidak%20valid");
+
+  const transaction = await prisma.transaksi.findUnique({
+    where: { id_transaksi: transactionId },
+    select: { id_transaksi: true, metode_pembayaran: true, status: true },
+  });
+  if (!transaction || transaction.metode_pembayaran !== "QRIS") {
+    redirect("/pelanggan?tab=Riwayat%20Transaksi&error=Transaksi%20QRIS%20tidak%20ditemukan");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.transaksi.update({
+      where: { id_transaksi: transactionId },
+      data: { status: "Selesai" },
+    });
+    await tx.permintaan_obat.updateMany({
+      where: {
+        pelanggan_id_pengguna: session.userId,
+        keterangan: { contains: `Transaksi #${transactionId}` },
+      },
+      data: { status_permintaan: "Selesai" },
+    });
+  });
+
+  revalidatePath("/pelanggan");
+  revalidatePath("/apoteker/transaksi");
+  revalidatePath("/apoteker/laporan");
+  redirect(`/pelanggan?tab=Riwayat%20Transaksi&purchase=confirmed&id=${transactionId}`);
 }
